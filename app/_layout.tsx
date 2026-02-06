@@ -1,24 +1,46 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { PaperProvider } from 'react-native-paper';
 import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
+import { NovelteaTheme } from '../src/theme';
+import { ThemeContextProvider, useThemeContext } from '../src/ThemeContext';
 
 export const unstable_settings = {
   anchor: '(tabs)',
 };
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+// Create a light theme
+const lightTheme = {
+  ...NovelteaTheme,
+  colors: {
+    ...NovelteaTheme.colors,
+    background: '#FFFFFF',
+    surface: '#F5F5F5',
+    onBackground: '#000000',
+    onSurface: '#000000',
+    primary: '#000000',
+  },
+};
 
+function RootLayoutContent() {
+  const { isDark } = useThemeContext();
+  const currentTheme = isDark ? NovelteaTheme : lightTheme;
+  
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <PaperProvider theme={currentTheme}>
+        <Stack>
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        </Stack>
+        <StatusBar style={isDark ? "light" : "dark"} />
+    </PaperProvider>
+  );
+}
+
+export default function RootLayout() {
+  return (
+    <ThemeContextProvider>
+      <RootLayoutContent />
+    </ThemeContextProvider>
   );
 }
