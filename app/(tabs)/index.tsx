@@ -5,13 +5,65 @@ import React, { useEffect, useState } from 'react';
 import { FlatList, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Button, IconButton, Searchbar, Text, useTheme } from 'react-native-paper';
 
-// Define the Book interface
+// Define the Book interface for type safety
 interface Book {
   key: string;
   title: string;
   authors?: Array<{ name: string }>;
   cover_id?: number;
 }
+
+// Mock book clubs data
+const bookClubs = [
+  {
+    id: '1',
+    name: 'Mystery Lovers',
+    members: 1234,
+    genre: 'Mystery',
+    emoji: '🔍',
+    color: '#FFE5B4',
+  },
+  {
+    id: '2',
+    name: 'Sci-Fi Explorers',
+    members: 2456,
+    genre: 'Science Fiction',
+    emoji: '🚀',
+    color: '#E0F4FF',
+  },
+  {
+    id: '3',
+    name: 'Romance Readers',
+    members: 3421,
+    genre: 'Romance',
+    emoji: '💕',
+    color: '#FFE5E5',
+  },
+  {
+    id: '4',
+    name: 'Fantasy Realm',
+    members: 2891,
+    genre: 'Fantasy',
+    emoji: '🧙',
+    color: '#F0E5FF',
+  },
+  {
+    id: '5',
+    name: 'Classic Literature',
+    members: 1876,
+    genre: 'Classics',
+    emoji: '📚',
+    color: '#E5F5E5',
+  },
+  {
+    id: '6',
+    name: 'Thriller Seekers',
+    members: 1654,
+    genre: 'Thriller',
+    emoji: '🔪',
+    color: '#FFE5E0',
+  },
+];
 
 export default function HomeScreen() {
   const theme = useTheme();
@@ -68,7 +120,7 @@ export default function HomeScreen() {
     { name: 'Fantasy', icon: '🧙', apiGenre: 'fantasy' },
   ];
 
-  // UPDATED THIS FUNCTION
+  
   const handleCategoryPress = (apiGenre: string) => {
     router.push(`/category/${apiGenre}` as any);
   };
@@ -191,6 +243,44 @@ export default function HomeScreen() {
           contentContainerStyle={styles.horizontalList}
         />
       </View>
+
+      {/* Trending Book Clubs Section */}
+      <View style={styles.section}>
+        <View style={styles.sectionHeader}>
+          <Text variant="headlineSmall" style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
+            Trending Book Clubs
+          </Text>
+          <Text style={[styles.seeAll, { color: theme.colors.onBackground }]}>›</Text>
+        </View>
+        <FlatList
+          horizontal
+          data={bookClubs}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <TouchableOpacity 
+              style={styles.bookClubCard}
+              onPress={() => console.log('Book club pressed:', item.name)}
+            >
+              <View style={[styles.bookClubImage, { backgroundColor: item.color }]}>
+                <Text style={styles.bookClubEmoji}>{item.emoji}</Text>
+              </View>
+              <View style={styles.bookClubInfo}>
+                <Text style={[styles.bookClubName, { color: theme.colors.onBackground }]} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <Text style={[styles.bookClubMembers, { color: theme.colors.onSurface }]}>
+                  {item.members} members
+                </Text>
+                <Text style={[styles.bookClubGenre, { color: theme.colors.onSurface }]}>
+                  {item.genre}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.horizontalList}
+        />
+      </View>
     </ScrollView>
   );
 }
@@ -273,5 +363,36 @@ const styles = StyleSheet.create({
   horizontalList: {
     paddingHorizontal: 16,
     paddingBottom: 8,
+  },
+  bookClubCard: {
+    width: 160,
+    marginRight: 16,
+    backgroundColor: 'transparent',
+  },
+  bookClubImage: {
+    width: 160,
+    height: 100,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  bookClubEmoji: {
+    fontSize: 48,
+  },
+  bookClubInfo: {
+    gap: 4,
+  },
+  bookClubName: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  bookClubMembers: {
+    fontSize: 13,
+    opacity: 0.7,
+  },
+  bookClubGenre: {
+    fontSize: 12,
+    opacity: 0.6,
   },
 });
