@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { FlatList, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Button, IconButton, Searchbar, Text, useTheme } from 'react-native-paper';
 
-// Define the Book interface for type safety
+// Define the Book interface
 interface Book {
   key: string;
   title: string;
@@ -105,6 +105,7 @@ export default function HomeScreen() {
           mode="outlined" 
           style={styles.loginButton}
           textColor={theme.colors.onBackground}
+          onPress={() => router.push('/auth/welcome')}
         >
           Login / Signup
         </Button>
