@@ -19,7 +19,7 @@ public class Follower {
     // Generated ID for the follow relationship
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long followerId;
 
     // The user who is doing the following
     @ManyToOne
@@ -34,4 +34,5 @@ public class Follower {
     @Builder.Default
     @Column(nullable = false)
     private LocalDate creationDate = LocalDate.now();
+
 }

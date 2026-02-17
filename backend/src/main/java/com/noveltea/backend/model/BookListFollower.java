@@ -18,7 +18,7 @@ public class BookListFollower {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long listFollowerId;
 
     // The user following the list
     @ManyToOne
@@ -33,4 +33,5 @@ public class BookListFollower {
     @Builder.Default
     @Column(nullable = false)
     private LocalDate followedDate = LocalDate.now();
+
 }
