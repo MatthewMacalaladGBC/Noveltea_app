@@ -7,7 +7,7 @@ import java.time.LocalDate;
 
 public class FollowerDto {
 
-    // Sent when following a user — only the target is needed;
+    // Sent when following a user (only the target is needed)
     // the follower is the authenticated user (resolved from auth token in service)
     @Data
     @NoArgsConstructor
