@@ -8,35 +8,30 @@ import com.noveltea.backend.model.Review;
 import com.noveltea.backend.model.User;
 import com.noveltea.backend.repository.ReviewRepository;
 import com.noveltea.backend.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class ReviewServiceImpl implements ReviewService {
 
     private final ReviewRepository reviewRepository;
     private final UserRepository userRepository;
     private final BookService bookService;
 
-    public ReviewServiceImpl(
-            ReviewRepository reviewRepository,
-            UserRepository userRepository,
-            BookService bookService
-    ) {
-        this.reviewRepository = reviewRepository;
-        this.userRepository = userRepository;
-        this.bookService = bookService;
-    }
+    // ---------------- CREATE ----------------
 
     @Override
-    public ReviewDto.Response create(String userIdFromJwt, ReviewDto.CreateRequest request) {
-        Long userId = Long.parseLong(userIdFromJwt);
+    @Transactional
+    public ReviewDto.Response create(Long userId, ReviewDto.CreateRequest request) {
 
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
-        // Ensure the book exists in the local db (cache from Open Library metadata)
         Book book = bookService.ensureBookExists(
                 request.getBookId(),
                 request.getTitle(),
@@ -52,45 +47,99 @@ public class ReviewServiceImpl implements ReviewService {
                 .reviewText(request.getReviewText())
                 .build();
 
-        // Override default visibility if explicitly provided
         if (request.getVisibility() != null) {
             review.setVisibility(request.getVisibility());
         }
 
         Review saved = reviewRepository.save(review);
 
-        // Recalculate the book's average rating after adding a new review
+        // rating recalc after create
         bookService.recalculateRating(book.getBookId());
 
         return toResponse(saved);
     }
 
+    // ---------------- PUBLIC VIEW ----------------
+    // Not logged in: public reviews only
+    // Logged in: public reviews + my private reviews for that same book
+
     @Override
-    public List<ReviewDto.Response> getByBookId(String bookId) {
-        return reviewRepository.findByBook_BookId(bookId)
-                .stream()
+    @Transactional(readOnly = true)
+    public List<ReviewDto.Response> getByBookId(Long userIdOrNull, String bookId) {
+
+        List<Review> results = new ArrayList<>();
+
+        // public reviews
+        results.addAll(reviewRepository.findByBook_BookIdAndVisibilityTrue(bookId));
+
+        // add my private reviews if logged in
+        if (userIdOrNull != null) {
+            results.addAll(
+                    reviewRepository.findByUser_UserIdAndBook_BookIdAndVisibilityFalse(userIdOrNull, bookId)
+            );
+        }
+
+        return results.stream()
                 .map(this::toResponse)
                 .toList();
     }
 
+    // ---------------- UPDATE ----------------
+
     @Override
-    public void delete(String userIdFromJwt, Long reviewId) {
-        Long userId = Long.parseLong(userIdFromJwt);
+    @Transactional
+    public ReviewDto.Response update(Long userId, Long reviewId, ReviewDto.UpdateRequest request) {
 
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(() -> new ResourceNotFoundException("Review not found: " + reviewId));
 
-        Long ownerId = review.getUser().getUserId();
-        if (!ownerId.equals(userId)) {
+        if (!review.getUser().getUserId().equals(userId)) {
+            throw new ForbiddenException("Not authorized to update this review");
+        }
+
+        boolean ratingChanged = false;
+
+        if (request.getRating() != null) {
+            review.setRating(request.getRating());
+            ratingChanged = true;
+        }
+        if (request.getReviewText() != null) {
+            review.setReviewText(request.getReviewText());
+        }
+        if (request.getVisibility() != null) {
+            review.setVisibility(request.getVisibility());
+        }
+
+        Review saved = reviewRepository.save(review);
+
+        if (ratingChanged) {
+            bookService.recalculateRating(saved.getBook().getBookId());
+        }
+
+        return toResponse(saved);
+    }
+
+    // ---------------- DELETE ----------------
+
+    @Override
+    @Transactional
+    public void delete(Long userId, Long reviewId) {
+
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found: " + reviewId));
+
+        if (!review.getUser().getUserId().equals(userId)) {
             throw new ForbiddenException("Not authorized to delete this review");
         }
 
         String bookId = review.getBook().getBookId();
         reviewRepository.delete(review);
 
-        // Recalculate the book's average rating after deleting a review
+        // rating recalc after delete
         bookService.recalculateRating(bookId);
     }
+
+    // ---------------- DTO MAPPING ----------------
 
     private ReviewDto.Response toResponse(Review r) {
         return ReviewDto.Response.builder()

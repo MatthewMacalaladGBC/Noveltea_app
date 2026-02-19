@@ -32,4 +32,9 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     // Total review count for a book (for display)
     long countByBook(Book book);
 
+
+    List<Review> findByBook_BookIdAndVisibilityTrue(String bookId);
+    List<Review> findByUser_UserIdAndBook_BookIdAndVisibilityFalse(Long userId, String bookId);
+
+
 }
