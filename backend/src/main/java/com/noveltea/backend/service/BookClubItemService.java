@@ -6,6 +6,7 @@ import com.noveltea.backend.model.BookClub;
 import com.noveltea.backend.model.BookClubItem;
 import com.noveltea.backend.model.BookClubItemStatus;
 import com.noveltea.backend.model.BookClubMember;
+import com.noveltea.backend.model.BookClubMemberRole;
 import com.noveltea.backend.model.User;
 import com.noveltea.backend.repository.BookClubItemRepository;
 import com.noveltea.backend.repository.BookClubMemberRepository;
@@ -48,7 +49,7 @@ public class BookClubItemService {
                 .orElseThrow(() -> new RuntimeException("User is not a member of the club: " + userId));
 
         // Member role check (only a club owner or moderator can add a book)
-        if (bookClubMember.getRole().equals("Member")) {
+        if (bookClubMember.getRole() == BookClubMemberRole.MEMBER) {
             throw new RuntimeException("Not authorized to add items to this club.");
         }
 
@@ -94,7 +95,7 @@ public class BookClubItemService {
                 .orElseThrow(() -> new RuntimeException("User is not a member of the club: " + userId));
 
         // Role check (only a club owner or moderator can modify a club item)
-        if (bookClubMember.getRole().equals("Member")) {
+        if (bookClubMember.getRole() == BookClubMemberRole.MEMBER) {
             throw new RuntimeException("Not authorized to modify items in this club.");
         }
 
@@ -143,7 +144,7 @@ public class BookClubItemService {
                 .orElseThrow(() -> new RuntimeException("User is not a member of the club: " + userId));
 
         // Role check (only a club owner or moderator can remove a club item)
-        if (bookClubMember.getRole().equals("Member")) {
+        if (bookClubMember.getRole() == BookClubMemberRole.MEMBER) {
             throw new RuntimeException("Not authorized to remove items from this club.");
         }
 

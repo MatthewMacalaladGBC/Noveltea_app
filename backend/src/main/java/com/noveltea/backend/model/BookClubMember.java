@@ -34,9 +34,10 @@ public class BookClubMember {
     @OnDelete(action = OnDeleteAction.CASCADE)
     private BookClub bookClub;
 
-    // Owner / Moderator / Member. Only one Owner allowed per club (creator automatically set to Owner)
+    // OWNER / MODERATOR / MEMBER. Only one OWNER allowed per club (creator automatically set to OWNER).
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private String role;
+    private BookClubMemberRole role;
 
     @Builder.Default
     @Column(nullable = false)

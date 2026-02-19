@@ -3,6 +3,7 @@ package com.noveltea.backend.service;
 import com.noveltea.backend.dto.BookClubDto;
 import com.noveltea.backend.model.BookClub;
 import com.noveltea.backend.model.BookClubMember;
+import com.noveltea.backend.model.BookClubMemberRole;
 import com.noveltea.backend.model.User;
 import com.noveltea.backend.repository.BookClubMemberRepository;
 import com.noveltea.backend.repository.BookClubRepository;
@@ -48,7 +49,7 @@ public class BookClubService {
             BookClubMember.builder()
                 .user(owner)
                 .bookClub(bookClub)
-                .role("Owner")
+                .role(BookClubMemberRole.OWNER)
                 .build()
         );
 
@@ -72,7 +73,7 @@ public class BookClubService {
 
         // Ownership / Moderator check (only the owner and club mods can modify a club)
         // Extra check, will likely not even show option for updating a list to users that did not create it
-        if (bookClubMember.getRole().equals("Member")) {
+        if (bookClubMember.getRole() == BookClubMemberRole.MEMBER) {
             throw new RuntimeException("Only the owner and club moderators are authorized to update this club");
         }
 
@@ -104,7 +105,7 @@ public class BookClubService {
         BookClubMember bookClubMember = bookClubMemberRepository.findByUserAndBookClub(user, bookClub)
                 .orElseThrow(() -> new RuntimeException("User not a member of the club: " + userId));
 
-        if (!bookClubMember.getRole().equals("Owner")) {
+        if (bookClubMember.getRole() != BookClubMemberRole.OWNER) {
             throw new RuntimeException("Only the owner can delete a club.");
         }
 

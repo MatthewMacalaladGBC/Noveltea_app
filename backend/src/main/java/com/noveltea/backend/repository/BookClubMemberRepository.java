@@ -2,6 +2,7 @@ package com.noveltea.backend.repository;
 
 import com.noveltea.backend.model.BookClub;
 import com.noveltea.backend.model.BookClubMember;
+import com.noveltea.backend.model.BookClubMemberRole;
 import com.noveltea.backend.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
@@ -24,8 +25,8 @@ public interface BookClubMemberRepository extends JpaRepository<BookClubMember, 
     // Retrieve specific membership (used for role checks, role updates, and removal)
     Optional<BookClubMember> findByUserAndBookClub(User user, BookClub bookClub);
 
-    // Members filtered by role (e.g. find "Owner" to identify creator)
-    List<BookClubMember> findByBookClubAndRole(BookClub bookClub, String role);
+    // Members filtered by role (e.g. find OWNER to identify creator)
+    List<BookClubMember> findByBookClubAndRole(BookClub bookClub, BookClubMemberRole role);
 
     // Total member count for a club
     long countByBookClub(BookClub bookClub);
