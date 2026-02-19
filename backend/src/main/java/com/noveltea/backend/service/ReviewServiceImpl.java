@@ -1,94 +1,160 @@
 package com.noveltea.backend.service;
 
 import com.noveltea.backend.dto.ReviewDto;
+import com.noveltea.backend.exception.ForbiddenException;
+import com.noveltea.backend.exception.ResourceNotFoundException;
 import com.noveltea.backend.model.Book;
 import com.noveltea.backend.model.Review;
 import com.noveltea.backend.model.User;
-import com.noveltea.backend.repository.BookRepository;
 import com.noveltea.backend.repository.ReviewRepository;
 import com.noveltea.backend.repository.UserRepository;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
-import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
+@RequiredArgsConstructor
 public class ReviewServiceImpl implements ReviewService {
 
     private final ReviewRepository reviewRepository;
     private final UserRepository userRepository;
-    private final BookRepository bookRepository;
+    private final BookService bookService;
 
-    public ReviewServiceImpl(
-            ReviewRepository reviewRepository,
-            UserRepository userRepository,
-            BookRepository bookRepository
-    ) {
-        this.reviewRepository = reviewRepository;
-        this.userRepository = userRepository;
-        this.bookRepository = bookRepository;
-    }
+    // ---------------- CREATE ----------------
 
     @Override
-    public ReviewDto create(String userIdFromJwt, ReviewDto dto) {
-        Long userId = Long.parseLong(userIdFromJwt);
+    @Transactional
+    public ReviewDto.Response create(Long userId, ReviewDto.CreateRequest request) {
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
-        Book book = bookRepository.findById(dto.getBookId())
-                .orElseThrow(() -> new RuntimeException("Book not found"));
+        Book book = bookService.ensureBookExists(
+                request.getBookId(),
+                request.getTitle(),
+                request.getAuthor(),
+                request.getCoverImageUrl(),
+                null
+        );
 
         Review review = Review.builder()
                 .user(user)
                 .book(book)
-                .rating(BigDecimal.valueOf(dto.getRating()))
-                .reviewText(dto.getReviewText())
-                .likes(0)
-                .visibility(true)
-                .creationDate(LocalDate.now())
+                .rating(request.getRating())
+                .reviewText(request.getReviewText())
                 .build();
+
+        if (request.getVisibility() != null) {
+            review.setVisibility(request.getVisibility());
+        }
 
         Review saved = reviewRepository.save(review);
 
-        return toDto(saved);
+        // rating recalc after create
+        bookService.recalculateRating(book.getBookId());
+
+        return toResponse(saved);
     }
 
+    // ---------------- PUBLIC VIEW ----------------
+    // Not logged in: public reviews only
+    // Logged in: public reviews + my private reviews for that same book
+
     @Override
-    public List<ReviewDto> getByBookId(String bookId) {
-        return reviewRepository.findByBook_BookId(bookId)
-                .stream()
-                .map(this::toDto)
+    @Transactional(readOnly = true)
+    public List<ReviewDto.Response> getByBookId(Long userIdOrNull, String bookId) {
+
+        List<Review> results = new ArrayList<>();
+
+        // public reviews
+        results.addAll(reviewRepository.findByBook_BookIdAndVisibilityTrue(bookId));
+
+        // add my private reviews if logged in
+        if (userIdOrNull != null) {
+            results.addAll(
+                    reviewRepository.findByUser_UserIdAndBook_BookIdAndVisibilityFalse(userIdOrNull, bookId)
+            );
+        }
+
+        return results.stream()
+                .map(this::toResponse)
                 .toList();
     }
 
+    // ---------------- UPDATE ----------------
+
     @Override
-    public void delete(String userIdFromJwt, Long reviewId) {
-        Long userId = Long.parseLong(userIdFromJwt);
+    @Transactional
+    public ReviewDto.Response update(Long userId, Long reviewId, ReviewDto.UpdateRequest request) {
 
         Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new RuntimeException("Review not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found: " + reviewId));
 
-        Long ownerId = review.getUser().getUserId();
-        if (!ownerId.equals(userId)) {
-            throw new RuntimeException("Not allowed to delete this review");
+        if (!review.getUser().getUserId().equals(userId)) {
+            throw new ForbiddenException("Not authorized to update this review");
         }
 
-        reviewRepository.delete(review);
+        boolean ratingChanged = false;
+
+        if (request.getRating() != null) {
+            review.setRating(request.getRating());
+            ratingChanged = true;
+        }
+        if (request.getReviewText() != null) {
+            review.setReviewText(request.getReviewText());
+        }
+        if (request.getVisibility() != null) {
+            review.setVisibility(request.getVisibility());
+        }
+
+        Review saved = reviewRepository.save(review);
+
+        if (ratingChanged) {
+            bookService.recalculateRating(saved.getBook().getBookId());
+        }
+
+        return toResponse(saved);
     }
 
-    private ReviewDto toDto(Review r) {
-        ReviewDto dto = new ReviewDto();
-        dto.setReviewId(r.getReviewId());
-        dto.setUserId(r.getUser().getUserId());
-        dto.setUsername(r.getUser().getUsername());
-        dto.setBookId(r.getBook().getBookId());
-        dto.setRating(r.getRating() == null ? null : r.getRating().doubleValue());
-        dto.setReviewText(r.getReviewText());
-        dto.setLikes(r.getLikes());
-        dto.setVisibility(r.getVisibility());
-        dto.setCreationDate(r.getCreationDate());
-        return dto;
+    // ---------------- DELETE ----------------
+
+    @Override
+    @Transactional
+    public void delete(Long userId, Long reviewId) {
+
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found: " + reviewId));
+
+        if (!review.getUser().getUserId().equals(userId)) {
+            throw new ForbiddenException("Not authorized to delete this review");
+        }
+
+        String bookId = review.getBook().getBookId();
+        reviewRepository.delete(review);
+
+        // rating recalc after delete
+        bookService.recalculateRating(bookId);
+    }
+
+    // ---------------- DTO MAPPING ----------------
+
+    private ReviewDto.Response toResponse(Review r) {
+        return ReviewDto.Response.builder()
+                .reviewId(r.getReviewId())
+                .userId(r.getUser().getUserId())
+                .username(r.getUser().getUsername())
+                .bookId(r.getBook().getBookId())
+                .bookTitle(r.getBook().getTitle())
+                .bookAuthor(r.getBook().getAuthor())
+                .coverImageUrl(r.getBook().getCoverImageUrl())
+                .rating(r.getRating())
+                .reviewText(r.getReviewText())
+                .likes(r.getLikes())
+                .visibility(r.getVisibility())
+                .creationDate(r.getCreationDate())
+                .build();
     }
 }

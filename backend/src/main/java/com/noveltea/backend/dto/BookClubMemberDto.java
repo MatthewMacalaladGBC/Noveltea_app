@@ -1,6 +1,6 @@
 package com.noveltea.backend.dto;
 
-import jakarta.validation.constraints.NotBlank;
+import com.noveltea.backend.model.BookClubMemberRole;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 
@@ -32,9 +32,9 @@ public class BookClubMemberDto {
         @NotNull
         private Long userId;
 
-        // "Member", "Moderator", or "Owner" (ownership transfer only if current Owner relinquishes)
-        @NotBlank
-        private String role;
+        // MEMBER, MODERATOR, or OWNER (ownership transfer only if current OWNER relinquishes)
+        @NotNull
+        private BookClubMemberRole role;
 
     }
 
@@ -51,7 +51,7 @@ public class BookClubMemberDto {
         private String clubName;
         private Long userId;
         private String username;
-        private String role;
+        private BookClubMemberRole role;
         private LocalDate joinedDate;
 
     }

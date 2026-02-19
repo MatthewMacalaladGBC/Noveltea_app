@@ -2,50 +2,69 @@ package com.noveltea.backend.controller;
 
 import com.noveltea.backend.dto.ReviewDto;
 import com.noveltea.backend.service.ReviewService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 
 @RestController
 @RequestMapping("/reviews")
-public class ReviewController {
+@RequiredArgsConstructor
+public class ReviewController extends BaseController {
 
     private final ReviewService reviewService;
 
-    public ReviewController(ReviewService reviewService) {
-        this.reviewService = reviewService;
-    }
-
-    // CREATE review (needs JWT)
+    // POST /reviews (must be logged in)
     @PostMapping
-    public ResponseEntity<ReviewDto> create(@Valid @RequestBody ReviewDto dto, HttpServletRequest request) {
-        String userId = (String) request.getAttribute("userId");
-        if (userId == null) {
-            return ResponseEntity.status(401).build();
-        }
+    public ResponseEntity<ReviewDto.Response> create(
+            @Valid @RequestBody ReviewDto.CreateRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        Long userId = getUserId(httpRequest);
+        if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
-        return ResponseEntity.ok(reviewService.create(userId, dto));
-        
+        return ResponseEntity.status(HttpStatus.CREATED).body(reviewService.create(userId, request));
     }
 
-    // GET reviews by bookId (public)
+    // GET /reviews/book/{bookId} (public)
+    // logged in -> sees public + their private
+    // not logged in -> sees public only
     @GetMapping("/book/{bookId}")
-    public ResponseEntity<List<ReviewDto>> getByBook(@PathVariable String bookId) {
-        return ResponseEntity.ok(reviewService.getByBookId(bookId));
+    public ResponseEntity<List<ReviewDto.Response>> getByBook(
+            @PathVariable String bookId,
+            HttpServletRequest httpRequest
+    ) {
+        Long userIdOrNull = getUserId(httpRequest);
+        return ResponseEntity.ok(reviewService.getByBookId(userIdOrNull, bookId));
     }
 
-    // DELETE review (needs JWT + must be owner)
+    // PATCH /reviews/{reviewId} (must be logged in + owner)
+    @PatchMapping("/{reviewId}")
+    public ResponseEntity<ReviewDto.Response> update(
+            @PathVariable Long reviewId,
+            @Valid @RequestBody ReviewDto.UpdateRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        Long userId = getUserId(httpRequest);
+        if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        return ResponseEntity.ok(reviewService.update(userId, reviewId, request));
+    }
+
+    // DELETE /reviews/{reviewId} (must be logged in + owner)
     @DeleteMapping("/{reviewId}")
-    public ResponseEntity<?> delete(@PathVariable Long reviewId, HttpServletRequest request) {
-        String userId = (String) request.getAttribute("userId");
-        if (userId == null) {
-            return ResponseEntity.status(401).build();
-        }
+    public ResponseEntity<Void> delete(
+            @PathVariable Long reviewId,
+            HttpServletRequest httpRequest
+    ) {
+        Long userId = getUserId(httpRequest);
+        if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
 
         reviewService.delete(userId, reviewId);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 }

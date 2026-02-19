@@ -1,54 +1,87 @@
 package com.noveltea.backend.dto;
 
-import jakarta.validation.constraints.*;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import lombok.*;
+
+import java.math.BigDecimal;
 import java.time.LocalDate;
 
 public class ReviewDto {
 
-    // response fields
-    private Long reviewId;
-    private Long userId;
-    private String username;
-    private LocalDate creationDate;
-    private Integer likes;
-    private Boolean visibility;
+    // Sent when creating a review
+    // Includes book metadata so the service can register the book in the db if not already present
+    // The reviewing user is the authenticated user (no need to include directly in request)
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class CreateRequest {
 
-    // request fields
-    @NotBlank
-    private String bookId;
+        // Book fields (passed directly from Open Library search results)
+        @NotBlank
+        private String bookId;
 
-    @NotNull
-    @DecimalMin("0.0")
-    @DecimalMax("5.0")
-    private Double rating;
+        @NotBlank
+        private String title;
 
-    private String reviewText;
+        @NotBlank
+        private String author;
 
-    // getters/setters
-    public Long getReviewId() { return reviewId; }
-    public void setReviewId(Long reviewId) { this.reviewId = reviewId; }
+        // nullable
+        private String coverImageUrl;
 
-    public Long getUserId() { return userId; }
-    public void setUserId(Long userId) { this.userId = userId; }
+        @NotNull
+        @DecimalMin("0.0")
+        @DecimalMax("5.0")
+        private BigDecimal rating;
 
-    public String getUsername() { return username; }
-    public void setUsername(String username) { this.username = username; }
+        // nullable; rating-only reviews are allowed
+        private String reviewText;
+        // nullable; service defaults to public (true) if absent
+        private Boolean visibility;
 
-    public LocalDate getCreationDate() { return creationDate; }
-    public void setCreationDate(LocalDate creationDate) { this.creationDate = creationDate; }
+    }
 
-    public Integer getLikes() { return likes; }
-    public void setLikes(Integer likes) { this.likes = likes; }
+    // Sent when updating an existing review
+    // All nullable, only provided fields are updated
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class UpdateRequest {
 
-    public Boolean getVisibility() { return visibility; }
-    public void setVisibility(Boolean visibility) { this.visibility = visibility; }
+        @DecimalMin("0.0")
+        @DecimalMax("5.0")
+        private BigDecimal rating;
 
-    public String getBookId() { return bookId; }
-    public void setBookId(String bookId) { this.bookId = bookId; }
+        private String reviewText;
+        private Boolean visibility;
 
-    public Double getRating() { return rating; }
-    public void setRating(Double rating) { this.rating = rating; }
+    }
 
-    public String getReviewText() { return reviewText; }
-    public void setReviewText(String reviewText) { this.reviewText = reviewText; }
+    // Returned when displaying reviews on a book page or user profile
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class Response {
+
+        private Long reviewId;
+        private Long userId;
+        private String username;
+        private String bookId;
+        private String bookTitle;
+        private String bookAuthor;
+        private String coverImageUrl;
+        private BigDecimal rating;
+        private String reviewText;
+        private Integer likes;
+        private Boolean visibility;
+        private LocalDate creationDate;
+
+    }
+
 }

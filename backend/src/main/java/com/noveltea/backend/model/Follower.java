@@ -2,6 +2,8 @@ package com.noveltea.backend.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import java.time.LocalDate;
 
@@ -25,11 +27,13 @@ public class Follower {
     // The user who is doing the following
     @ManyToOne(optional = false)
     @JoinColumn(name = "follower_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private User follower;
 
     // The user being followed
     @ManyToOne(optional = false)
     @JoinColumn(name = "followed_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private User followed;
 
     @Builder.Default

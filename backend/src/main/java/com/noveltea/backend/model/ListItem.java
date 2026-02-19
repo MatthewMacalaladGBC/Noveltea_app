@@ -2,6 +2,8 @@ package com.noveltea.backend.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import java.time.LocalDate;
 
@@ -23,11 +25,13 @@ public class ListItem {
     // The book being added to the list
     @ManyToOne
     @JoinColumn(name = "book_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Book book;
 
     // The list this item belongs to
     @ManyToOne
     @JoinColumn(name = "list_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private BookList bookList;
 
     // Position of this book within the list

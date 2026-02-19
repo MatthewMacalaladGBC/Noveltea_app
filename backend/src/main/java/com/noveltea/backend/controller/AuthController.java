@@ -4,6 +4,7 @@ import com.noveltea.backend.dto.AuthResponse;
 import com.noveltea.backend.dto.LoginRequest;
 import com.noveltea.backend.dto.MeResponse;
 import com.noveltea.backend.dto.RegisterRequest;
+import com.noveltea.backend.exception.ResourceNotFoundException;
 import com.noveltea.backend.model.User;
 import com.noveltea.backend.repository.UserRepository;
 import com.noveltea.backend.service.AuthService;
@@ -35,17 +36,17 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-public ResponseEntity<MeResponse> me(Authentication authentication) {
-    String email = authentication.getName();
+    public ResponseEntity<MeResponse> me(Authentication authentication) {
+        String email = authentication.getName();
 
-    User user = userRepository.findByEmail(email)
-            .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
 
-    return ResponseEntity.ok(new MeResponse(
-            user.getUserId(),
-            user.getUsername(),
-            user.getEmail()
-    ));
-}
+        return ResponseEntity.ok(new MeResponse(
+                user.getUserId(),
+                user.getUsername(),
+                user.getEmail()
+        ));
+    }
 
 }
