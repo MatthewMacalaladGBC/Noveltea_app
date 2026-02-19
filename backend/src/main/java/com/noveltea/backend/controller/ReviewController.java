@@ -21,19 +21,20 @@ public class ReviewController {
 
     // CREATE review (needs JWT)
     @PostMapping
-    public ResponseEntity<ReviewDto> create(@Valid @RequestBody ReviewDto dto, HttpServletRequest request) {
-        String userId = (String) request.getAttribute("userId");
+    public ResponseEntity<ReviewDto.Response> create(
+            @Valid @RequestBody ReviewDto.CreateRequest request,
+            HttpServletRequest httpRequest) {
+        String userId = (String) httpRequest.getAttribute("userId");
         if (userId == null) {
             return ResponseEntity.status(401).build();
         }
 
-        return ResponseEntity.ok(reviewService.create(userId, dto));
-        
+        return ResponseEntity.ok(reviewService.create(userId, request));
     }
 
     // GET reviews by bookId (public)
     @GetMapping("/book/{bookId}")
-    public ResponseEntity<List<ReviewDto>> getByBook(@PathVariable String bookId) {
+    public ResponseEntity<List<ReviewDto.Response>> getByBook(@PathVariable String bookId) {
         return ResponseEntity.ok(reviewService.getByBookId(bookId));
     }
 
