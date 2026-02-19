@@ -2,27 +2,25 @@ package com.noveltea.backend.controller;
 
 import com.noveltea.backend.dto.AuthResponse;
 import com.noveltea.backend.dto.LoginRequest;
-import com.noveltea.backend.dto.MeResponse;
 import com.noveltea.backend.dto.RegisterRequest;
-import com.noveltea.backend.exception.ResourceNotFoundException;
-import com.noveltea.backend.model.User;
-import com.noveltea.backend.repository.UserRepository;
+import com.noveltea.backend.dto.UserDto;
 import com.noveltea.backend.service.AuthService;
+import com.noveltea.backend.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/auth")
-public class AuthController {
+public class AuthController extends BaseController {
 
     private final AuthService authService;
-    private final UserRepository userRepository;
+    private final UserService userService;
 
-    public AuthController(AuthService authService, UserRepository userRepository) {
+    public AuthController(AuthService authService, UserService userService) {
         this.authService = authService;
-        this.userRepository = userRepository;
+        this.userService = userService;
     }
 
     @PostMapping("/register")
@@ -35,18 +33,11 @@ public class AuthController {
         return ResponseEntity.ok(authService.login(request));
     }
 
+    // Returns the full profile for the currently authenticated user.
+    // Protected by SecurityConfig — requires a valid JWT (returns 401 if missing/invalid).
     @GetMapping("/me")
-    public ResponseEntity<MeResponse> me(Authentication authentication) {
-        String email = authentication.getName();
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + email));
-
-        return ResponseEntity.ok(new MeResponse(
-                user.getUserId(),
-                user.getUsername(),
-                user.getEmail()
-        ));
+    public ResponseEntity<UserDto.Response> me(HttpServletRequest httpRequest) {
+        Long userId = getUserId(httpRequest);
+        return ResponseEntity.ok(userService.getById(userId));
     }
-
 }
