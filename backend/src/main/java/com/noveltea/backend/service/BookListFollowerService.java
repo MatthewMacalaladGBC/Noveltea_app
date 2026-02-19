@@ -1,6 +1,9 @@
 package com.noveltea.backend.service;
 
 import com.noveltea.backend.dto.BookListFollowerDto;
+import com.noveltea.backend.exception.DuplicateResourceException;
+import com.noveltea.backend.exception.ForbiddenException;
+import com.noveltea.backend.exception.ResourceNotFoundException;
 import com.noveltea.backend.model.BookList;
 import com.noveltea.backend.model.BookListFollower;
 import com.noveltea.backend.model.User;
@@ -30,18 +33,18 @@ public class BookListFollowerService {
     @Transactional
     public BookListFollowerDto.Response followList(Long userId, BookListFollowerDto.Request request) {
         BookList bookList = bookListRepository.findById(request.getListId())
-                .orElseThrow(() -> new RuntimeException("Book list not found: " + request.getListId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Book list not found: " + request.getListId()));
 
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+            .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
         // Private lists are only visible to their creator
         if (!bookList.getVisibility() && !bookList.getCreator().getUserId().equals(userId)) {
-            throw new RuntimeException("Cannot follow a private list");
+            throw new ForbiddenException("Cannot follow a private list");
         }
 
         if (bookListFollowerRepository.existsByUserAndBookList(user, bookList)) {
-            throw new RuntimeException("User is already following this book list");
+            throw new DuplicateResourceException("User is already following this book list");
         }
 
         BookListFollower bookListFollower = BookListFollower.builder()
@@ -59,10 +62,10 @@ public class BookListFollowerService {
     @Transactional
     public void unfollowList(Long userId, Long listFollowerId) {
         BookListFollower bookListFollower = bookListFollowerRepository.findById(listFollowerId)
-                .orElseThrow(() -> new RuntimeException("List item not found: " + listFollowerId));
+                .orElseThrow(() -> new ResourceNotFoundException("List follower not found: " + listFollowerId));
 
         if (!bookListFollower.getUser().getUserId().equals(userId)) {
-            throw new RuntimeException("Cannot unfollow for another user");
+            throw new ForbiddenException("Cannot unfollow for another user");
         }
 
         bookListFollowerRepository.delete(bookListFollower);
@@ -77,7 +80,7 @@ public class BookListFollowerService {
     @Transactional(readOnly = true)
     public List<BookListFollowerDto.Response> getFollowersByList(Long listId) {
         BookList bookList = bookListRepository.findById(listId)
-                .orElseThrow(() -> new RuntimeException("Book list not found: " + listId));
+                .orElseThrow(() -> new ResourceNotFoundException("Book list not found: " + listId));
 
         return bookListFollowerRepository.findByBookList(bookList).stream()
                 .map(this::mapToResponse)
@@ -90,7 +93,7 @@ public class BookListFollowerService {
     @Transactional(readOnly = true)
     public List<BookListFollowerDto.Response> getFollowedListsByUser(Long userId) {
         User user = userRepository.findById(userId)
-            .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+            .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
         return bookListFollowerRepository.findByUser(user).stream()
                 .map(this::mapToResponse)

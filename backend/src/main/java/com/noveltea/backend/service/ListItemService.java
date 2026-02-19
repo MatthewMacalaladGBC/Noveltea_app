@@ -1,5 +1,8 @@
 package com.noveltea.backend.service;
 
+import com.noveltea.backend.exception.DuplicateResourceException;
+import com.noveltea.backend.exception.ForbiddenException;
+import com.noveltea.backend.exception.ResourceNotFoundException;
 import com.noveltea.backend.model.Book;
 import com.noveltea.backend.model.BookList;
 import com.noveltea.backend.model.ListItem;
@@ -30,11 +33,11 @@ public class ListItemService {
     @Transactional
     public ListItemDto.Response addItem(Long userId, ListItemDto.Request request) {
         BookList bookList = bookListRepository.findById(request.getListId())
-                .orElseThrow(() -> new RuntimeException("Book list not found: " + request.getListId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Book list not found: " + request.getListId()));
 
         // Ownership check (only the list creator can add items)
         if (!bookList.getCreator().getUserId().equals(userId)) {
-            throw new RuntimeException("Not authorized to add items to this list");
+            throw new ForbiddenException("Not authorized to add items to this list");
         }
 
         // Ensure the book exists in the local db (cache from Open Library metadata)
@@ -49,7 +52,7 @@ public class ListItemService {
 
         // Check if this book is already in the list (unique constraint would catch this too, but cleaner error)
         if (listItemRepository.existsByBookListAndBook(bookList, book)) {
-            throw new RuntimeException("Book is already in this list");
+            throw new DuplicateResourceException("Book is already in this list");
         }
 
         // Auto-assign sortOrder: max existing + 1, or 1 if list is still empty
@@ -72,10 +75,10 @@ public class ListItemService {
     @Transactional
     public void removeItem(Long userId, Long listItemId) {
         ListItem item = listItemRepository.findById(listItemId)
-                .orElseThrow(() -> new RuntimeException("List item not found: " + listItemId));
+                .orElseThrow(() -> new ResourceNotFoundException("List item not found: " + listItemId));
 
         if (!item.getBookList().getCreator().getUserId().equals(userId)) {
-            throw new RuntimeException("Not authorized to remove items from this list");
+            throw new ForbiddenException("Not authorized to remove items from this list");
         }
 
         listItemRepository.delete(item);
@@ -90,11 +93,11 @@ public class ListItemService {
     @Transactional(readOnly = true)
     public List<ListItemDto.Response> getItemsByList(Long requestingUserId, Long listId) {
         BookList bookList = bookListRepository.findById(listId)
-                .orElseThrow(() -> new RuntimeException("Book list not found: " + listId));
+                .orElseThrow(() -> new ResourceNotFoundException("Book list not found: " + listId));
 
         // Private lists are only viewable by their creator
         if (!bookList.getVisibility() && !bookList.getCreator().getUserId().equals(requestingUserId)) {
-            throw new RuntimeException("Not authorized to view this list");
+            throw new ForbiddenException("Not authorized to view this list");
         }
 
         return listItemRepository.findByBookListOrderBySortOrder(bookList).stream()
@@ -112,10 +115,10 @@ public class ListItemService {
     @Transactional
     public void reorderItem(Long userId, Long listItemId, Integer newSortOrder) {
         ListItem item = listItemRepository.findById(listItemId)
-                .orElseThrow(() -> new RuntimeException("List item not found: " + listItemId));
+                .orElseThrow(() -> new ResourceNotFoundException("List item not found: " + listItemId));
 
         if (!item.getBookList().getCreator().getUserId().equals(userId)) {
-            throw new RuntimeException("Not authorized to reorder items in this list");
+            throw new ForbiddenException("Not authorized to reorder items in this list");
         }
 
         int oldSortOrder = item.getSortOrder();

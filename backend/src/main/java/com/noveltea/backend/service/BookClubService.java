@@ -1,6 +1,8 @@
 package com.noveltea.backend.service;
 
 import com.noveltea.backend.dto.BookClubDto;
+import com.noveltea.backend.exception.ForbiddenException;
+import com.noveltea.backend.exception.ResourceNotFoundException;
 import com.noveltea.backend.model.BookClub;
 import com.noveltea.backend.model.BookClubMember;
 import com.noveltea.backend.model.BookClubMemberRole;
@@ -31,7 +33,7 @@ public class BookClubService {
     @Transactional
     public BookClubDto.Response createClub(Long userId, BookClubDto.CreateRequest request) {
         User owner = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
         BookClub bookClub = BookClub.builder()
                 .name(request.getName())
@@ -63,18 +65,18 @@ public class BookClubService {
     @Transactional
     public BookClubDto.Response updateClub(Long userId, Long bookClubId, BookClubDto.UpdateRequest request) {
         BookClub bookClub = bookClubRepository.findById(bookClubId)
-                .orElseThrow(() -> new RuntimeException("Book Club not found: " + bookClubId));
+                .orElseThrow(() -> new ResourceNotFoundException("Book Club not found: " + bookClubId));
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
         BookClubMember bookClubMember = bookClubMemberRepository.findByUserAndBookClub(user, bookClub)
-                .orElseThrow(() -> new RuntimeException("User not a member of the club: " + userId));
+                .orElseThrow(() -> new ForbiddenException("User is not a member of this club."));
 
         // Ownership / Moderator check (only the owner and club mods can modify a club)
         // Extra check, will likely not even show option for updating a list to users that did not create it
         if (bookClubMember.getRole() == BookClubMemberRole.MEMBER) {
-            throw new RuntimeException("Only the owner and club moderators are authorized to update this club");
+            throw new ForbiddenException("Only the owner and club moderators are authorized to update this club");
         }
 
         if (request.getName() != null) {
@@ -97,16 +99,16 @@ public class BookClubService {
     @Transactional
     public void deleteClub(Long userId, Long bookClubId) {
         BookClub bookClub = bookClubRepository.findById(bookClubId)
-                .orElseThrow(() -> new RuntimeException("Book Club not found: " + bookClubId));
+                .orElseThrow(() -> new ResourceNotFoundException("Book Club not found: " + bookClubId));
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
         BookClubMember bookClubMember = bookClubMemberRepository.findByUserAndBookClub(user, bookClub)
-                .orElseThrow(() -> new RuntimeException("User not a member of the club: " + userId));
+                .orElseThrow(() -> new ForbiddenException("User is not a member of this club."));
 
         if (bookClubMember.getRole() != BookClubMemberRole.OWNER) {
-            throw new RuntimeException("Only the owner can delete a club.");
+            throw new ForbiddenException("Only the owner can delete a club.");
         }
 
         bookClubRepository.delete(bookClub);
@@ -122,14 +124,14 @@ public class BookClubService {
     @Transactional(readOnly = true)
     public BookClubDto.Response getClubById(Long userId, Long bookClubId) {
         BookClub bookClub = bookClubRepository.findById(bookClubId)
-                .orElseThrow(() -> new RuntimeException("Book Club not found: " + bookClubId));
+                .orElseThrow(() -> new ResourceNotFoundException("Book Club not found: " + bookClubId));
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
         // Private clubs are only visible to members
         if (bookClub.getPrivacy() && !bookClubMemberRepository.existsByUserAndBookClub(user, bookClub)) {
-            throw new RuntimeException("Only members can view a private club.");
+            throw new ForbiddenException("Only members can view a private club.");
         }
 
         return mapToResponse(bookClub);

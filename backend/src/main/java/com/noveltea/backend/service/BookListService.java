@@ -1,6 +1,8 @@
 package com.noveltea.backend.service;
 
 import com.noveltea.backend.dto.BookListDto;
+import com.noveltea.backend.exception.ForbiddenException;
+import com.noveltea.backend.exception.ResourceNotFoundException;
 import com.noveltea.backend.model.BookList;
 import com.noveltea.backend.model.User;
 import com.noveltea.backend.repository.BookListRepository;
@@ -27,7 +29,7 @@ public class BookListService {
     @Transactional
     public BookListDto.Response createList(Long userId, BookListDto.CreateRequest request) {
         User creator = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
         BookList list = BookList.builder()
                 .creator(creator)
@@ -50,12 +52,12 @@ public class BookListService {
     @Transactional
     public BookListDto.Response updateList(Long userId, Long listId, BookListDto.UpdateRequest request) {
         BookList list = bookListRepository.findById(listId)
-                .orElseThrow(() -> new RuntimeException("List not found: " + listId));
+                .orElseThrow(() -> new ResourceNotFoundException("List not found: " + listId));
 
         // Ownership check (only the creator can modify their list)
         // Extra check, will likely not even show option for updating a list to users that did not create it
         if (!list.getCreator().getUserId().equals(userId)) {
-            throw new RuntimeException("Not authorized to update this list");
+            throw new ForbiddenException("Not authorized to update this list");
         }
 
         if (request.getTitle() != null) {
@@ -78,10 +80,10 @@ public class BookListService {
     @Transactional
     public void deleteList(Long userId, Long listId) {
         BookList list = bookListRepository.findById(listId)
-                .orElseThrow(() -> new RuntimeException("List not found: " + listId));
+                .orElseThrow(() -> new ResourceNotFoundException("List not found: " + listId));
 
         if (!list.getCreator().getUserId().equals(userId)) {
-            throw new RuntimeException("Not authorized to delete this list");
+            throw new ForbiddenException("Not authorized to delete this list");
         }
 
         bookListRepository.delete(list);
@@ -96,11 +98,11 @@ public class BookListService {
     @Transactional(readOnly = true)
     public BookListDto.Response getListById(Long requestingUserId, Long listId) {
         BookList list = bookListRepository.findById(listId)
-                .orElseThrow(() -> new RuntimeException("List not found: " + listId));
+                .orElseThrow(() -> new ResourceNotFoundException("List not found: " + listId));
 
         // Private lists are only visible to their creator
         if (!list.getVisibility() && !list.getCreator().getUserId().equals(requestingUserId)) {
-            throw new RuntimeException("Not authorized to view this list");
+            throw new ForbiddenException("Not authorized to view this list");
         }
 
         return mapToResponse(list);
@@ -114,7 +116,7 @@ public class BookListService {
     @Transactional(readOnly = true)
     public List<BookListDto.Response> getListsByUser(Long requestingUserId, Long targetUserId) {
         User targetUser = userRepository.findById(targetUserId)
-                .orElseThrow(() -> new RuntimeException("User not found: " + targetUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + targetUserId));
 
         List<BookList> lists;
         if (requestingUserId.equals(targetUserId)) {

@@ -1,6 +1,7 @@
 package com.noveltea.backend.service;
 
 import com.noveltea.backend.dto.BookDto;
+import com.noveltea.backend.exception.ResourceNotFoundException;
 import com.noveltea.backend.model.Book;
 import com.noveltea.backend.model.Review;
 import com.noveltea.backend.repository.BookRepository;
@@ -67,7 +68,7 @@ public class BookService {
     @Transactional(readOnly = true)
     public BookDto.Response getBookById(String bookId) {
         Book book = bookRepository.findById(bookId)
-                .orElseThrow(() -> new RuntimeException("Book not found: " + bookId));
+                .orElseThrow(() -> new ResourceNotFoundException("Book not found: " + bookId));
         return mapToResponse(book);
     }
 
@@ -111,7 +112,7 @@ public class BookService {
     @Transactional
     public void recalculateRating(String bookId) {
         Book book = bookRepository.findById(bookId)
-                .orElseThrow(() -> new RuntimeException("Book not found: " + bookId));
+                .orElseThrow(() -> new ResourceNotFoundException("Book not found: " + bookId));
 
         List<Review> reviews = reviewRepository.findByBook(book);
 

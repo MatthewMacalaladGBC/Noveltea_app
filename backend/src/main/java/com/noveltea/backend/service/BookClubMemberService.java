@@ -1,6 +1,10 @@
 package com.noveltea.backend.service;
 
 import com.noveltea.backend.dto.BookClubMemberDto;
+import com.noveltea.backend.exception.DuplicateResourceException;
+import com.noveltea.backend.exception.ForbiddenException;
+import com.noveltea.backend.exception.InvalidRequestException;
+import com.noveltea.backend.exception.ResourceNotFoundException;
 import com.noveltea.backend.model.BookClub;
 import com.noveltea.backend.model.BookClubMember;
 import com.noveltea.backend.model.BookClubMemberRole;
@@ -32,17 +36,17 @@ public class BookClubMemberService {
     @Transactional
     public BookClubMemberDto.Response joinClub(Long userId, BookClubMemberDto.JoinRequest request) {
         BookClub bookClub = bookClubRepository.findById(request.getBookClubId())
-                .orElseThrow(() -> new RuntimeException("Book Club not found: " + request.getBookClubId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Book Club not found: " + request.getBookClubId()));
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
         if (bookClub.getPrivacy().equals(true)) {
-            throw new RuntimeException("Cannot self-join a private club.");
+            throw new ForbiddenException("Cannot self-join a private club.");
         }
 
         if (bookClubMemberRepository.existsByUserAndBookClub(user, bookClub)) {
-            throw new RuntimeException("User is already a member of this club.");
+            throw new DuplicateResourceException("User is already a member of this club.");
         }
 
         BookClubMember member = BookClubMember.builder()
@@ -61,16 +65,16 @@ public class BookClubMemberService {
     @Transactional
     public void leaveClub(Long userId, Long bookClubId) {
         BookClub bookClub = bookClubRepository.findById(bookClubId)
-                .orElseThrow(() -> new RuntimeException("Book Club not found: " + bookClubId));
+                .orElseThrow(() -> new ResourceNotFoundException("Book Club not found: " + bookClubId));
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
         BookClubMember member = bookClubMemberRepository.findByUserAndBookClub(user, bookClub)
-                .orElseThrow(() -> new RuntimeException("User is not a member of this club."));
+                .orElseThrow(() -> new ResourceNotFoundException("User is not a member of this club."));
 
         if (member.getRole() == BookClubMemberRole.OWNER) {
-            throw new RuntimeException("Club owner cannot leave. Transfer ownership to another member first.");
+            throw new InvalidRequestException("Club owner cannot leave. Transfer ownership to another member first.");
         }
 
         bookClubMemberRepository.delete(member);
@@ -83,31 +87,31 @@ public class BookClubMemberService {
     @Transactional
     public void removeMember(Long requestingUserId, Long bookClubId, Long targetUserId) {
         BookClub bookClub = bookClubRepository.findById(bookClubId)
-                .orElseThrow(() -> new RuntimeException("Book Club not found: " + bookClubId));
+                .orElseThrow(() -> new ResourceNotFoundException("Book Club not found: " + bookClubId));
 
         User requester = userRepository.findById(requestingUserId)
-                .orElseThrow(() -> new RuntimeException("User not found: " + requestingUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + requestingUserId));
 
         BookClubMember requesterMember = bookClubMemberRepository.findByUserAndBookClub(requester, bookClub)
-                .orElseThrow(() -> new RuntimeException("Requesting user is not a member of this club."));
+                .orElseThrow(() -> new ForbiddenException("Requesting user is not a member of this club."));
 
         if (requesterMember.getRole() == BookClubMemberRole.MEMBER) {
-            throw new RuntimeException("Not authorized to remove members from this club.");
+            throw new ForbiddenException("Not authorized to remove members from this club.");
         }
 
         User target = userRepository.findById(targetUserId)
-                .orElseThrow(() -> new RuntimeException("Target user not found: " + targetUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("Target user not found: " + targetUserId));
 
         BookClubMember targetMember = bookClubMemberRepository.findByUserAndBookClub(target, bookClub)
-                .orElseThrow(() -> new RuntimeException("Target user is not a member of this club."));
+                .orElseThrow(() -> new ResourceNotFoundException("Target user is not a member of this club."));
 
         if (targetMember.getRole() == BookClubMemberRole.OWNER) {
-            throw new RuntimeException("Cannot remove the club owner.");
+            throw new ForbiddenException("Cannot remove the club owner.");
         }
 
         // Moderators can only remove regular Members, not other Moderators
         if (requesterMember.getRole() == BookClubMemberRole.MODERATOR && targetMember.getRole() == BookClubMemberRole.MODERATOR) {
-            throw new RuntimeException("Moderators cannot remove other moderators.");
+            throw new ForbiddenException("Moderators cannot remove other moderators.");
         }
 
         bookClubMemberRepository.delete(targetMember);
@@ -121,27 +125,27 @@ public class BookClubMemberService {
     @Transactional
     public BookClubMemberDto.Response updateRole(Long requestingUserId, Long bookClubId, BookClubMemberDto.UpdateRoleRequest request) {
         BookClub bookClub = bookClubRepository.findById(bookClubId)
-                .orElseThrow(() -> new RuntimeException("Book Club not found: " + bookClubId));
+                .orElseThrow(() -> new ResourceNotFoundException("Book Club not found: " + bookClubId));
 
         User requester = userRepository.findById(requestingUserId)
-                .orElseThrow(() -> new RuntimeException("User not found: " + requestingUserId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + requestingUserId));
 
         BookClubMember requesterMember = bookClubMemberRepository.findByUserAndBookClub(requester, bookClub)
-                .orElseThrow(() -> new RuntimeException("Requesting user is not a member of this club."));
+                .orElseThrow(() -> new ForbiddenException("Requesting user is not a member of this club."));
 
         if (requesterMember.getRole() != BookClubMemberRole.OWNER) {
-            throw new RuntimeException("Only the club owner can update member roles.");
+            throw new ForbiddenException("Only the club owner can update member roles.");
         }
 
         if (requestingUserId.equals(request.getUserId())) {
-            throw new RuntimeException("Cannot update your own role. To transfer ownership, assign it to another member.");
+            throw new InvalidRequestException("Cannot update your own role. To transfer ownership, assign it to another member.");
         }
 
         User target = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new RuntimeException("Target user not found: " + request.getUserId()));
+                .orElseThrow(() -> new ResourceNotFoundException("Target user not found: " + request.getUserId()));
 
         BookClubMember targetMember = bookClubMemberRepository.findByUserAndBookClub(target, bookClub)
-                .orElseThrow(() -> new RuntimeException("Target user is not a member of this club."));
+                .orElseThrow(() -> new ResourceNotFoundException("Target user is not a member of this club."));
 
         // Ownership transfer: current owner steps down to MODERATOR, target becomes OWNER
         if (request.getRole() == BookClubMemberRole.OWNER) {
@@ -162,13 +166,13 @@ public class BookClubMemberService {
     @Transactional(readOnly = true)
     public List<BookClubMemberDto.Response> getMembersByClub(Long userId, Long bookClubId) {
         BookClub bookClub = bookClubRepository.findById(bookClubId)
-                .orElseThrow(() -> new RuntimeException("Book Club not found: " + bookClubId));
+                .orElseThrow(() -> new ResourceNotFoundException("Book Club not found: " + bookClubId));
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
         if (bookClub.getPrivacy().equals(true) && !bookClubMemberRepository.existsByUserAndBookClub(user, bookClub)) {
-            throw new RuntimeException("User is not a member of this club.");
+            throw new ForbiddenException("User is not a member of this club.");
         }
 
         return bookClubMemberRepository.findByBookClub(bookClub).stream()
@@ -182,7 +186,7 @@ public class BookClubMemberService {
     @Transactional(readOnly = true)
     public List<BookClubMemberDto.Response> getMembershipsByUser(Long userId) {
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
         return bookClubMemberRepository.findByUser(user).stream()
                 .map(this::mapToResponse)

@@ -1,6 +1,8 @@
 package com.noveltea.backend.service;
 
 import com.noveltea.backend.dto.ReviewDto;
+import com.noveltea.backend.exception.ForbiddenException;
+import com.noveltea.backend.exception.ResourceNotFoundException;
 import com.noveltea.backend.model.Book;
 import com.noveltea.backend.model.Review;
 import com.noveltea.backend.model.User;
@@ -32,7 +34,7 @@ public class ReviewServiceImpl implements ReviewService {
         Long userId = Long.parseLong(userIdFromJwt);
 
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
         // Ensure the book exists in the local db (cache from Open Library metadata)
         Book book = bookService.ensureBookExists(
@@ -76,11 +78,11 @@ public class ReviewServiceImpl implements ReviewService {
         Long userId = Long.parseLong(userIdFromJwt);
 
         Review review = reviewRepository.findById(reviewId)
-                .orElseThrow(() -> new RuntimeException("Review not found"));
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found: " + reviewId));
 
         Long ownerId = review.getUser().getUserId();
         if (!ownerId.equals(userId)) {
-            throw new RuntimeException("Not allowed to delete this review");
+            throw new ForbiddenException("Not authorized to delete this review");
         }
 
         String bookId = review.getBook().getBookId();
