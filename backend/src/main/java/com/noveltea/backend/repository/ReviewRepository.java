@@ -14,6 +14,9 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     // All reviews for a book (used to calculate the book's rating)
     List<Review> findByBook(Book book);
 
+    // All reviews for a book by book ID (used by auth branch's ReviewService)
+    List<Review> findByBook_BookId(String bookId);
+
     // Public reviews for a book (used for displaying reviews on book page)
     List<Review> findByBookAndVisibilityTrueAndReviewTextNotNull(Book book);
 
