@@ -1,5 +1,6 @@
 package com.noveltea.backend.dto;
 
+import com.noveltea.backend.model.BookClubItemStatus;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
@@ -31,8 +32,8 @@ public class BookClubItemDto {
 
         // nullable
         private String coverImageUrl;
-        // nullable; defaults to "Upcoming" if absent
-        private String status;
+        // nullable; always ignored — addBook always starts as UPCOMING
+        private BookClubItemStatus status;
 
     }
 
@@ -44,8 +45,8 @@ public class BookClubItemDto {
     @Builder
     public static class UpdateRequest {
 
-        // nullable; "Active", "Upcoming", or "Completed"
-        private String status;
+        // nullable; UPCOMING, ACTIVE, or COMPLETED
+        private BookClubItemStatus status;
         // nullable; set when transitioning to Active, if not manually done
         private LocalDate startDate;
         // nullable
@@ -66,7 +67,7 @@ public class BookClubItemDto {
         private String bookTitle;
         private String bookAuthor;
         private String coverImageUrl;
-        private String status;
+        private BookClubItemStatus status;
         private LocalDate startDate;
         private LocalDate endDate;
         private LocalDate addedDate;

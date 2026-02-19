@@ -3,6 +3,7 @@ package com.noveltea.backend.repository;
 import com.noveltea.backend.model.Book;
 import com.noveltea.backend.model.BookClub;
 import com.noveltea.backend.model.BookClubItem;
+import com.noveltea.backend.model.BookClubItemStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -15,9 +16,11 @@ public interface BookClubItemRepository extends JpaRepository<BookClubItem, Long
     // All items in a club (all statuses)
     List<BookClubItem> findByBookClub(BookClub bookClub);
 
-    // Items filtered by status (e.g. "Active", "Upcoming", "Completed")
-    // Service enforces only one Active item at a time
-    List<BookClubItem> findByBookClubAndStatus(BookClub bookClub, String status);
+    // Items filtered by status (UPCOMING, ACTIVE, COMPLETED)
+    List<BookClubItem> findByBookClubAndStatus(BookClub bookClub, BookClubItemStatus status);
+
+    // Find the club's single active item (service enforces only one ACTIVE at a time)
+    Optional<BookClubItem> findFirstByBookClubAndStatus(BookClub bookClub, BookClubItemStatus status);
 
     // Check if a book already exists in a club before adding
     boolean existsByBookClubAndBook(BookClub bookClub, Book book);

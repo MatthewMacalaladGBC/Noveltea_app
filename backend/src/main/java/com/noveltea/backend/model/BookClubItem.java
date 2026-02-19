@@ -42,9 +42,12 @@ public class BookClubItem {
     @Column
     private LocalDate endDate;
 
-    // Active / Upcoming / Completed. Only one Active item allowed at one time per club
+    // ACTIVE / UPCOMING / COMPLETED. Only one ACTIVE item allowed at one time per club.
+    // Defaults to UPCOMING on creation; use updateItem to transition to ACTIVE.
+    @Enumerated(EnumType.STRING)
+    @Builder.Default
     @Column(nullable = false)
-    private String status;
+    private BookClubItemStatus status = BookClubItemStatus.UPCOMING;
 
     @Builder.Default
     @Column(nullable = false)
