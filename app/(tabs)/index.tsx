@@ -235,6 +235,7 @@ export default function HomeScreen() {
                 title={title}
                 author={author}
                 coverUrl={coverUrl}
+                bookId={item.key}
                 onPress={() => console.log('Book pressed:', title)}
               />
             );
