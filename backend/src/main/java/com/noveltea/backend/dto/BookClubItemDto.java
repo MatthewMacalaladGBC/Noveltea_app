@@ -6,53 +6,70 @@ import lombok.*;
 
 import java.time.LocalDate;
 
-public class BookClubMemberDto {
+public class BookClubItemDto {
 
-    // Sent when joining a club
-    // The joining user is the authenticated user (no need to include directly in request)
+    // Sent when adding a book to a club's reading list
+    // Includes book metadata so the service can register the book in the db if not already present
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
-    public static class JoinRequest {
+    public static class AddRequest {
 
         @NotNull
         private Long bookClubId;
 
+        // Book fields (passed from Open Library search results)
+        @NotBlank
+        private String bookId;
+
+        @NotBlank
+        private String title;
+
+        @NotBlank
+        private String author;
+
+        // nullable
+        private String coverImageUrl;
+        // nullable; defaults to "Upcoming" if absent
+        private String status;
+
     }
 
-    // Sent when updating a member's role (only owner can create / remove moderators)
+    // Sent when updating a club item's status or reading dates
+    // All nullable, only provided fields are updated
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
-    public static class UpdateRoleRequest {
+    public static class UpdateRequest {
 
-        // the member whose role is being changed
-        @NotNull
-        private Long userId;
-
-        // "Member", "Moderator", or "Owner" (ownership transfer only if current Owner relinquishes)
-        @NotBlank
-        private String role;
+        // nullable; "Active", "Upcoming", or "Completed"
+        private String status;
+        // nullable; set when transitioning to Active, if not manually done
+        private LocalDate startDate;
+        // nullable
+        private LocalDate endDate;
 
     }
 
-    // Returned when viewing a club's member list or a user's club memberships
+    // Returned when viewing a club's reading list
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
     @Builder
     public static class Response {
 
-        private Long clubMemberId;
+        private Long clubItemId;
         private Long bookClubId;
-        // useful when displaying a user's club memberships
-        private String clubName;
-        private Long userId;
-        private String username;
-        private String role;
-        private LocalDate joinedDate;
+        private String bookId;
+        private String bookTitle;
+        private String bookAuthor;
+        private String coverImageUrl;
+        private String status;
+        private LocalDate startDate;
+        private LocalDate endDate;
+        private LocalDate addedDate;
 
     }
 
