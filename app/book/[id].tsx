@@ -6,8 +6,8 @@ import { Appbar, Button, Chip, Text, useTheme } from 'react-native-paper';
 interface BookDetails {
   key: string;
   title: string;
-  authors?: Array<{ name: string; key?: string }>;
-  cover_id?: number;
+  authors?: Array<{ author: { key: string } }>;
+  covers?: number[];
   first_publish_date?: string;
   description?: string | { value: string };
   subjects?: string[];
@@ -86,6 +86,7 @@ export default function BookDetailsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [inLibrary, setInLibrary] = useState(false);
   const [userRating, setUserRating] = useState(0);
+  const [authors, setAuthors] = useState('Unknown Author');
 
   useEffect(() => {
     if (id) {
@@ -110,7 +111,21 @@ export default function BookDetailsScreen() {
         throw new Error('Book not found');
       }
 
-      setBook(data);
+  setBook(data);
+
+  // Add this inside fetchBookDetails, after setBook(data):
+  if (data.authors && data.authors.length > 0) {
+    const authorPromises = data.authors.slice(0, 3).map(async (a: any) => {
+    const authorKey = a.author?.key?.replace('/authors/', '');
+    if (!authorKey) return null;
+    const res = await fetch(`https://openlibrary.org/authors/${authorKey}.json`);
+    const authorData = await res.json();
+    return authorData.name;
+  });
+
+  const names = await Promise.all(authorPromises);
+  setAuthors(names.filter(Boolean).join(', ') || 'Unknown Author');
+}  
     } catch (err) {
       console.error('Error fetching book details:', err);
       setError(err instanceof Error ? err.message : 'Failed to load book details');
@@ -125,10 +140,10 @@ export default function BookDetailsScreen() {
     return description.value || 'No description available.';
   };
 
-  const getCoverUrl = (coverId: number | undefined, size: 'S' | 'M' | 'L' = 'L') => {
-    if (!coverId) return null;
-    return `https://covers.openlibrary.org/b/id/${coverId}-${size}.jpg`;
-  };
+  const getCoverUrl = (covers: number[] | undefined, size: 'S' | 'M' | 'L' = 'L') => {
+  if (!covers || covers.length === 0) return null;
+  return `https://covers.openlibrary.org/b/id/${covers[0]}-${size}.jpg`;
+};
 
   const handleAddToLibrary = () => {
     setInLibrary(!inLibrary);
@@ -192,9 +207,8 @@ export default function BookDetailsScreen() {
     );
   }
 
-  const coverUrl = getCoverUrl(book.cover_id);
-  const description = getDescription(book.description);
-  const authors = book.authors?.map(author => author.name).filter(name => name).join(', ') || 'Unknown Author';
+// was: getCoverUrl(book.cover_id)
+  const coverUrl = getCoverUrl(book.covers);  const description = getDescription(book.description);
   const subjects = book.subjects?.slice(0, 5) || [];
 
   return (
