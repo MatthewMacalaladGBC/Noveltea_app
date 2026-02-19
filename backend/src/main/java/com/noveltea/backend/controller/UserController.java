@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/users")
-public class UserController {
+public class UserController extends BaseController {
 
     private final UserService userService;
 
@@ -23,32 +23,35 @@ public class UserController {
         return ResponseEntity.ok(userService.getById(id));
     }
 
-    // PUT /users/{id}
+    // PUT /users/{id} — caller can only update their own profile
     @PutMapping("/{id}")
     public ResponseEntity<UserDto.Response> updateUser(
             @PathVariable Long id,
-            @Valid @RequestBody UserDto.UpdateRequest dto
+            @Valid @RequestBody UserDto.UpdateRequest dto,
+            HttpServletRequest httpRequest
     ) {
-        return ResponseEntity.ok(userService.updateUser(id, dto));
+        Long requestingUserId = getUserId(httpRequest);
+        return ResponseEntity.ok(userService.updateUser(requestingUserId, id, dto));
     }
 
-    // PATCH /users/profile  (JWT user)
+    // PATCH /users/profile — self-service update via JWT identity
     @PatchMapping("/profile")
     public ResponseEntity<UserDto.Response> updateMyProfile(
             @RequestBody UserDto.UpdateRequest dto,
-            HttpServletRequest request
+            HttpServletRequest httpRequest
     ) {
-        String userId = (String) request.getAttribute("userId");
-        if (userId == null) {
-            return ResponseEntity.status(401).build();
-        }
+        Long userId = getUserId(httpRequest);
         return ResponseEntity.ok(userService.updateMyProfile(userId, dto));
     }
 
-    // DELETE /users/{id}
+    // DELETE /users/{id} — caller can only delete their own account
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> delete(@PathVariable Long id) {
-        userService.deleteUser(id);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<Void> delete(
+            @PathVariable Long id,
+            HttpServletRequest httpRequest
+    ) {
+        Long requestingUserId = getUserId(httpRequest);
+        userService.deleteUser(requestingUserId, id);
+        return ResponseEntity.noContent().build();
     }
 }
