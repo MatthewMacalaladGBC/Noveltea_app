@@ -2,6 +2,8 @@ package com.noveltea.backend.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import java.time.LocalDate;
 
@@ -23,11 +25,13 @@ public class BookClubItem {
     // The book being read by the club
     @ManyToOne
     @JoinColumn(name = "book_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private Book book;
 
     // The club this item belongs to
     @ManyToOne
     @JoinColumn(name = "book_club_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private BookClub bookClub;
 
     // Set automatically when status transitions to Active; nullable for Upcoming items

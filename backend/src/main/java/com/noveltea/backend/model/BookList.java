@@ -2,6 +2,8 @@ package com.noveltea.backend.model;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.OnDelete;
+import org.hibernate.annotations.OnDeleteAction;
 
 import java.time.LocalDate;
 
@@ -20,6 +22,7 @@ public class BookList {
     // The user who created this list
     @ManyToOne
     @JoinColumn(name = "creator_id", nullable = false)
+    @OnDelete(action = OnDeleteAction.CASCADE)
     private User creator;
 
     @Column(nullable = false)
