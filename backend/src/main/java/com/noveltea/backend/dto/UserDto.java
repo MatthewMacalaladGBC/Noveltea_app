@@ -56,7 +56,7 @@ public class UserDto {
 
     }
 
-    // Returned by the backend when sending user data to the frontend
+    // Returned by the backend when sending user data to the frontend (for own user - full info)
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
@@ -66,6 +66,22 @@ public class UserDto {
         private Long userId;
         private String username;
         private String email;
+        private String bio;
+        private Boolean privacy;
+        private String role;
+        private LocalDate joinDate;
+
+    }
+
+    // Returned by the backend when sending user data to the frontend (other user - private info like email not returned)
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class PublicResponse {
+
+        private Long userId;
+        private String username;
         private String bio;
         private Boolean privacy;
         private String role;
