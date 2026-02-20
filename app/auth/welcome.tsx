@@ -1,7 +1,7 @@
 import { useThemeContext } from '@/src/ThemeContext';
 import { router } from 'expo-router';
 import React from 'react';
-import { Image, StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Button, Text, useTheme } from 'react-native-paper';
 
 export default function AuthWelcomeScreen() {
@@ -12,7 +12,11 @@ export default function AuthWelcomeScreen() {
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Logo and App Name - positioned at top */}
       <View style={styles.logoSection}>
-        <View style={styles.logoContainer}>
+        <TouchableOpacity
+          style={styles.logoContainer}
+          onPress={() => router.replace('/(tabs)')}
+          activeOpacity={0.7}
+        >
           <Image 
             source={require('@/assets/images/Noveltea-logo.png')}
             style={styles.logoImage}
@@ -21,7 +25,7 @@ export default function AuthWelcomeScreen() {
           <Text variant="displayMedium" style={[styles.appName, { color: theme.colors.onBackground }]}>
             NovelTea
           </Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       {/* Spacer to push buttons down */}
