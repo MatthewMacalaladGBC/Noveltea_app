@@ -217,7 +217,9 @@ export default function HomeScreen() {
           <Text variant="headlineSmall" style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
             Trending
           </Text>
-          <Text style={[styles.seeAll, { color: theme.colors.onBackground }]}>›</Text>
+          <TouchableOpacity onPress={() => router.push({ pathname: '/(tabs)/explore', params: { mode: 'trending' } } as any)}>
+            <Text style={[styles.seeAll, { color: theme.colors.onBackground }]}>›</Text>
+          </TouchableOpacity>
         </View>
         <FlatList
           horizontal
@@ -229,6 +231,7 @@ export default function HomeScreen() {
             const coverUrl = item?.cover_id 
               ? `https://covers.openlibrary.org/b/id/${item.cover_id}-M.jpg`
               : '';
+            const bookId = item.key.replace('/works/', '');
             
             return (
               <BookCard
@@ -236,7 +239,7 @@ export default function HomeScreen() {
                 author={author}
                 coverUrl={coverUrl}
                 bookId={item.key}
-                onPress={() => console.log('Book pressed:', title)}
+                onPress={() => router.push({ pathname: '/book/[id]', params: { id: bookId } })}
               />
             );
           }}
