@@ -55,6 +55,15 @@ public class ReviewController extends BaseController {
         return ResponseEntity.ok(reviewService.update(userId, reviewId, request));
     }
 
+    // GET /reviews/me/count — total reviews written by the authenticated user
+    @GetMapping("/me/count")
+    public ResponseEntity<Long> getMyReviewCount(HttpServletRequest httpRequest) {
+        Long userId = getUserId(httpRequest);
+        if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+        return ResponseEntity.ok(reviewService.countByUserId(userId));
+    }
+
     // DELETE /reviews/{reviewId} (must be logged in + owner)
     @DeleteMapping("/{reviewId}")
     public ResponseEntity<Void> delete(

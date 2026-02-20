@@ -171,3 +171,13 @@ export const listsApi = {
   deleteList: (listId: number, token: string) =>
     request<void>(`/lists/${listId}`, { method: 'DELETE', token }),
 };
+
+// ---------------------------------------------------------------------------
+// Review endpoints
+// ---------------------------------------------------------------------------
+
+export const reviewsApi = {
+  // Returns the total number of reviews written by the authenticated user
+  getMyCount: (token: string) =>
+    request<number>('/reviews/me/count', { token }),
+};

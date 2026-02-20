@@ -65,6 +65,7 @@ public class SecurityConfig {
                         // /auth/me requires a valid JWT — must be declared before the broader /auth/** permit
                         .requestMatchers(HttpMethod.GET, "/auth/me").authenticated()
                         .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/reviews/me/count").authenticated()
                         .requestMatchers(HttpMethod.GET, "/reviews/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/reviews").authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/reviews/**").authenticated()

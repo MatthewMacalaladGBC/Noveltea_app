@@ -1,4 +1,4 @@
-import { BookList, ListItem, listsApi } from '@/src/api/client';
+import { BookList, ListItem, listsApi, reviewsApi } from '@/src/api/client';
 import BookCard from '@/src/components/cards/BookCard';
 import CreateListModal from '@/src/components/modals/CreateListModal';
 import { useAuth } from '@/src/context/AuthContext';
@@ -22,6 +22,7 @@ export default function ProfileScreen() {
   const [listItemsMap, setListItemsMap] = useState<Record<number, ListItem[]>>({});
   const [listsLoading, setListsLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
+  const [reviewCount, setReviewCount] = useState<number>(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -32,8 +33,13 @@ export default function ProfileScreen() {
 
       async function fetchLists() {
         try {
-          const allLists = await listsApi.getMyLists(token!);
+          const [allLists, count] = await Promise.all([
+            listsApi.getMyLists(token!),
+            reviewsApi.getMyCount(token!),
+          ]);
           if (cancelled) return;
+
+          setReviewCount(count);
 
           // Exclude Library, sort by most recently created, take the top few
           const userLists = allLists
@@ -179,7 +185,7 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.statItem}>
             <Text variant="headlineMedium" style={[styles.statNumber, { color: theme.colors.onBackground }]}>
-              0
+              {reviewCount}
             </Text>
             <Text variant="bodySmall" style={[styles.statLabel, { color: theme.colors.onSurface }]}>
               Reviews
