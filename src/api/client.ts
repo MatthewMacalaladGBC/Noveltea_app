@@ -29,6 +29,8 @@ export interface UserProfile {
 // Internal fetch helper
 // ---------------------------------------------------------------------------
 
+const REQUEST_TIMEOUT_MS = 8000;
+
 async function request<T>(
   path: string,
   options: RequestInit & { token?: string } = {}
@@ -40,7 +42,20 @@ async function request<T>(
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
   };
 
-  const response = await fetch(`${BASE_URL}${path}`, { ...rest, headers });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  let response: Response;
+  try {
+    response = await fetch(`${BASE_URL}${path}`, { ...rest, headers, signal: controller.signal });
+  } catch (e: any) {
+    if (e?.name === 'AbortError') {
+      throw new Error('Request timed out. Is the server running?');
+    }
+    throw new Error('Network error. Check your connection or server status.');
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   // Attempt to parse JSON — fall back gracefully if the body isn't JSON
   const body = await response.json().catch(() => ({
