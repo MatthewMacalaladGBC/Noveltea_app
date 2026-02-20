@@ -33,7 +33,9 @@ public class AuthServiceImpl implements AuthService {
         String email = request.getEmail().trim().toLowerCase();
         String username = request.getUsername().trim();
 
-        // If you want unique usernames too (recommended)
+        if (userRepository.existsByUsername(username)) {
+            throw new IllegalArgumentException("Username already in use");
+        }
         if (userRepository.existsByEmail(email)) {
             throw new IllegalArgumentException("Email already in use");
         }
