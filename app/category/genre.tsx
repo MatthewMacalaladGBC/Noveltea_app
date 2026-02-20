@@ -10,6 +10,7 @@ interface Book {
   title: string;
   authors?: Array<{ name: string }>;
   cover_id?: number;
+  isbn13?: string[];
 }
 
 export default function CategoryScreen() {
@@ -122,18 +123,20 @@ export default function CategoryScreen() {
             renderItem={({ item }) => {
               const title = item?.title || 'Unknown Title';
               const author = item?.authors?.[0]?.name || 'Unknown Author';
-              const coverUrl = item?.cover_id
-                ? `https://covers.openlibrary.org/b/id/${item.cover_id}-M.jpg`
-                : '';
+              const coverUrl = getCoverUrl(item?.isbn13, item?.cover_id, 'L');
 
               return (
                 <View style={styles.bookItem}>
                   <BookCard
                     title={title}
                     author={author}
-                    coverUrl={coverUrl}
-                    onPress={() => console.log('Book pressed:', title)}
-                  />
+                    coverUrl={coverUrl || 'https://via.placeholder.com/150x225?text=No+Cover'}
+                    bookId={item.key}
+                    onPress={() => router.push({
+                      pathname: '/book/[id]',
+                      params: { id: item.key.replace('/works/', '') }
+                    })}                  
+                    />
                 </View>
               );
             }}
@@ -184,3 +187,15 @@ const styles = StyleSheet.create({
     width: '48%',
   },
 });
+
+const getCoverUrl = (isbn13: string[] | undefined, coverId: number | undefined, size: 'S' | 'M' | 'L' = 'L') => {
+  // Try ISBN first (more reliable)
+  if (isbn13 && isbn13.length > 0 && isbn13[0]) {
+    return `https://covers.openlibrary.org/b/isbn/${isbn13[0]}-${size}.jpg`;
+  }
+  // Fallback to cover_id
+  if (coverId) {
+    return `https://covers.openlibrary.org/b/id/${coverId}-${size}.jpg`;
+  }
+  return null;
+};
