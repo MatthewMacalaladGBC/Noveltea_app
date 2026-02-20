@@ -1,5 +1,5 @@
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -8,7 +8,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { Searchbar, Text, useTheme } from 'react-native-paper';
+import { Appbar, Searchbar, Text, useTheme } from 'react-native-paper';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -109,6 +109,19 @@ export default function ExploreScreen() {
   const { mode } = useLocalSearchParams<{ mode?: string }>();
   const isTrendingMode = mode === 'trending';
 
+  const [trendingActive, setTrendingActive] = useState(isTrendingMode);
+
+  // Reset trending mode when tab is focused without the param
+  useFocusEffect(
+    useCallback(() => {
+      if (!isTrendingMode) {
+        setTrendingActive(false);
+        setResults([]);
+        setQuery('');
+      }
+    }, [isTrendingMode])
+  );
+
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchBook[]>([]);
   const [loading, setLoading] = useState(false);
@@ -116,7 +129,10 @@ export default function ExploreScreen() {
 
   // Auto-load trending when navigated with ?mode=trending
   useEffect(() => {
-    if (isTrendingMode) fetchTrending();
+    if (isTrendingMode) {
+      setTrendingActive(true);
+      fetchTrending();
+    }
   }, [isTrendingMode]);
 
   const fetchTrending = async () => {
@@ -138,7 +154,7 @@ export default function ExploreScreen() {
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!query.trim()) {
-      if (!isTrendingMode) setResults([]);
+      if (!trendingActive) setResults([]);
       return;
     }
     debounceRef.current = setTimeout(() => searchBooks(query.trim()), 400);
@@ -160,16 +176,33 @@ export default function ExploreScreen() {
     }
   };
 
-  const showResults = query.trim().length > 0 || isTrendingMode;
-  const headerTitle = isTrendingMode && !query ? 'Trending Books' : 'Search';
+  const showResults = query.trim().length > 0 || trendingActive;
+  const headerTitle = trendingActive && !query ? 'Trending Books' : 'Explore';
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.colors.background }]}>
-        <Text variant="headlineMedium" style={[styles.headerTitle, { color: theme.colors.onBackground }]}>
-          {headerTitle}
-        </Text>
+        {trendingActive && !query ? (
+          <Appbar.Header style={{ backgroundColor: 'transparent', elevation: 0, height: 40, marginBottom: 4 }}>
+            <Appbar.BackAction
+              onPress={() => {
+                setTrendingActive(false);
+                setResults([]);
+                router.replace('/(tabs)/explore' as any);
+              }}
+              color={theme.colors.onBackground}
+            />
+            <Appbar.Content
+              title="Trending Books"
+              titleStyle={{ color: theme.colors.onBackground, fontWeight: '700', fontSize: 20 }}
+            />
+          </Appbar.Header>
+        ) : (
+          <Text variant="headlineMedium" style={[styles.headerTitle, { color: theme.colors.onBackground }]}>
+            {headerTitle}
+          </Text>
+        )}
       </View>
 
       {/* Search bar */}
