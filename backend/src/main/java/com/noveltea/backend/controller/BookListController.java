@@ -60,6 +60,13 @@ public class BookListController extends BaseController {
         return ResponseEntity.ok(bookListService.getListById(userId, listId));
     }
 
+    // GET /lists/me — returns the authenticated user's own lists (all, including private)
+    @GetMapping("/me")
+    public ResponseEntity<List<BookListDto.Response>> getMyLists(HttpServletRequest httpRequest) {
+        Long userId = getUserId(httpRequest);
+        return ResponseEntity.ok(bookListService.getListsByUser(userId, userId));
+    }
+
     // GET /lists/user/{targetUserId}
     @GetMapping("/user/{targetUserId}")
     public ResponseEntity<List<BookListDto.Response>> getListsByUser(

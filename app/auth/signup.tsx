@@ -1,30 +1,51 @@
 import { useThemeContext } from '@/src/ThemeContext';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Appbar, Button, Text, TextInput, useTheme } from 'react-native-paper';
 
-// ─── Manual date picker (no extra packages needed) ────────────────────────────
+// emulator-safe base URL for Android
+const API_URL =
+  process.env.EXPO_PUBLIC_API_URL ||
+  (Platform.OS === 'android' ? 'http://10.0.2.2:8080' : 'http://localhost:8080');
+
+console.log('SIGNUP SCREEN LOADED: app/auth/signup.tsx', { API_URL });
+
+// Manual date picker
 function DatePicker({ onConfirm, theme }: { onConfirm: (d: Date) => void; theme: any }) {
   const currentYear = new Date().getFullYear();
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const [day, setDay]     = useState('');
+  const [day, setDay] = useState('');
   const [month, setMonth] = useState('');
-  const [year, setYear]   = useState('');
-  const [err, setErr]     = useState('');
+  const [year, setYear] = useState('');
+  const [err, setErr] = useState('');
 
   const confirm = () => {
-    const d = parseInt(day), m = parseInt(month) - 1, y = parseInt(year);
-    if (!d || !m && m !== 0 || !y || y < 1900 || y > currentYear) {
+    const d = parseInt(day, 10);
+    const m = parseInt(month, 10) - 1;
+    const y = parseInt(year, 10);
+
+    if (!d || m < 0 || m > 11 || !y || y < 1900 || y > currentYear) {
       setErr('Please enter a valid date.');
       return;
     }
+
     const date = new Date(y, m, d);
-    const age = currentYear - y - (new Date() < new Date(new Date().getFullYear(), m, d) ? 1 : 0);
+    if (Number.isNaN(date.getTime())) {
+      setErr('Please enter a valid date.');
+      return;
+    }
+
+    // age check (13+)
+    const now = new Date();
+    let age = now.getFullYear() - y;
+    const birthdayThisYear = new Date(now.getFullYear(), m, d);
+    if (now < birthdayThisYear) age -= 1;
+
     if (age < 13) {
       setErr('You must be at least 13 years old to sign up.');
       return;
     }
+
     setErr('');
     onConfirm(date);
   };
@@ -32,7 +53,6 @@ function DatePicker({ onConfirm, theme }: { onConfirm: (d: Date) => void; theme:
   return (
     <View style={{ gap: 10 }}>
       <View style={{ flexDirection: 'row', gap: 8 }}>
-        {/* Day */}
         <TextInput
           label="Day"
           value={day}
@@ -45,7 +65,7 @@ function DatePicker({ onConfirm, theme }: { onConfirm: (d: Date) => void; theme:
           textColor={theme.colors.onBackground}
           placeholder="DD"
         />
-        {/* Month */}
+
         <TextInput
           label="Month"
           value={month}
@@ -58,7 +78,7 @@ function DatePicker({ onConfirm, theme }: { onConfirm: (d: Date) => void; theme:
           textColor={theme.colors.onBackground}
           placeholder="MM"
         />
-        {/* Year */}
+
         <TextInput
           label="Year"
           value={year}
@@ -72,72 +92,147 @@ function DatePicker({ onConfirm, theme }: { onConfirm: (d: Date) => void; theme:
           placeholder="YYYY"
         />
       </View>
+
       {err ? <Text style={{ color: '#CC0000', fontSize: 12 }}>{err}</Text> : null}
-      <Button
-        mode="contained"
-        onPress={confirm}
-        buttonColor="#000"
-        textColor="#fff"
-        style={{ borderRadius: 8 }}
-      >
+
+      <Button mode="contained" onPress={confirm} buttonColor="#000" textColor="#fff" style={{ borderRadius: 8 }}>
         Confirm Date
       </Button>
     </View>
   );
 }
 
-// ─── Main signup screen ───────────────────────────────────────────────────────
+//  Helper: extract Spring validation messages
+function extractErrorMessage(data: any): string {
+  if (!data) return 'Registration failed. Please try again.';
+
+  // common single message
+  if (typeof data.message === 'string' && data.message.trim()) return data.message;
+
+  // sometimes: { error: "..." }
+  if (typeof data.error === 'string' && data.error.trim()) return data.error;
+
+  // sometimes: { errors: ["a", "b"] }
+  if (Array.isArray(data.errors) && data.errors.length) return data.errors.join(', ');
+
+  // sometimes: { errors: { field: "msg" } }
+  if (data.errors && typeof data.errors === 'object') {
+    const parts = Object.entries(data.errors).map(([k, v]) => `${k}: ${String(v)}`);
+    if (parts.length) return parts.join('\n');
+  }
+
+  // Spring-style: { fieldErrors: [{field, defaultMessage}] }
+  if (Array.isArray(data.fieldErrors) && data.fieldErrors.length) {
+    return data.fieldErrors.map((e: any) => `${e.field}: ${e.defaultMessage}`).join('\n');
+  }
+
+  // Spring Validation: { violations: [{field, message}] }
+  if (Array.isArray(data.violations) && data.violations.length) {
+    return data.violations.map((v: any) => `${v.field}: ${v.message}`).join('\n');
+  }
+
+  // last resort
+  try {
+    return JSON.stringify(data);
+  } catch {
+    return 'Registration failed. Please try again.';
+  }
+}
+
+// Main signup screen
 export default function SignupScreen() {
   const theme = useTheme();
   const { isDark } = useThemeContext();
-  const [fullName, setFullName]             = useState('');
-  const [email, setEmail]                   = useState('');
-  const [password, setPassword]             = useState('');
+
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [agreedToTerms, setAgreedToTerms]   = useState(false);
-  const [loading, setLoading]               = useState(false);
-  const [dateOfBirth, setDateOfBirth]       = useState<Date | null>(null);
+  const [agreedToTerms, setAgreedToTerms] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const [dateOfBirth, setDateOfBirth] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  const [error, setError] = useState<string | null>(null);
 
   const formatDate = (d: Date) =>
     d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-  const isFormValid = () =>
-    fullName.trim() !== '' &&
-    email.trim() !== '' &&
-    password.length >= 6 &&
-    password === confirmPassword &&
-    agreedToTerms &&
-    dateOfBirth !== null;
-
-  const handleSignup = async () => {
-    if (!isFormValid()) return;
-    setLoading(true);
-    console.log('Signup:', { fullName, email, password, dateOfBirth });
-    setTimeout(() => {
-      setLoading(false);
-      router.replace('/(tabs)');
-    }, 1000);
-  };
+  const isFormValid = useMemo(() => {
+    return (
+      username.trim() !== '' &&
+      email.trim() !== '' &&
+      password.length >= 6 &&
+      password === confirmPassword &&
+      agreedToTerms &&
+      dateOfBirth !== null
+    );
+  }, [username, email, password, confirmPassword, agreedToTerms, dateOfBirth]);
 
   const handleDateConfirmed = (d: Date) => {
     setDateOfBirth(d);
     setShowDatePicker(false);
   };
 
+  const handleSignup = async () => {
+    // extra guard (so we NEVER send blank username)
+    const trimmedUsername = username.trim();
+    console.log("username RIGHT BEFORE SEND =", trimmedUsername);
+    if (!trimmedUsername) {
+      setError('Please enter a valid username.');
+      return;
+    }
+    if (!isFormValid || loading) return;
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const payload = {
+        username: trimmedUsername,
+        email: email.trim(),
+        password,
+      };
+
+      // debug logs
+      console.log('➡️ REGISTER payload:', payload);
+      console.log('➡️ REGISTER url:', `${API_URL}/auth/register`);
+
+      const res = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json().catch(() => null);
+
+      console.log('⬅️ REGISTER status:', res.status);
+      console.log('⬅️ REGISTER response:', data);
+
+      if (!res.ok) {
+        throw new Error(extractErrorMessage(data));
+      }
+
+      // go to login after success
+      router.replace('/auth/login');
+    } catch (e: any) {
+      setError(e?.message ?? 'Registration failed.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={true}
-      >
-        {/* Back button */}
+      <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
         <Appbar.Header style={{ backgroundColor: 'transparent', elevation: 0, marginBottom: -16 }}>
           <Appbar.BackAction onPress={() => router.push('/auth/welcome')} color={theme.colors.onBackground} />
         </Appbar.Header>
 
-        {/* Header */}
         <View style={styles.header}>
           <Text variant="displaySmall" style={[styles.appName, { color: theme.colors.onBackground }]}>
             NovelTea
@@ -147,17 +242,15 @@ export default function SignupScreen() {
           </Text>
         </View>
 
-        {/* Form */}
         <View style={styles.form}>
-          {/* Full Name */}
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.colors.onBackground }]}>Full Name:</Text>
+            <Text style={[styles.label, { color: theme.colors.onBackground }]}>Username:</Text>
             <TextInput
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="Jane Doe"
+              value={username}
+              onChangeText={setUsername}
+              placeholder="Jane_Doe"
               mode="outlined"
-              autoCapitalize="words"
+              autoCapitalize="none"
               style={styles.input}
               outlineColor="#E5E5E5"
               activeOutlineColor="#000000"
@@ -167,20 +260,15 @@ export default function SignupScreen() {
             />
           </View>
 
-          {/* Date of Birth */}
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.colors.onBackground }]}>
               Date of Birth: <Text style={{ color: '#999', fontWeight: '400', fontSize: 12 }}>(must be 13+)</Text>
             </Text>
 
-            {/* DOB trigger button */}
             <TouchableOpacity
               style={[
                 styles.dobButton,
-                {
-                  borderColor: showDatePicker ? '#000' : '#E5E5E5',
-                  backgroundColor: '#fff',
-                },
+                { borderColor: showDatePicker ? '#000' : '#E5E5E5', backgroundColor: '#fff' },
               ]}
               onPress={() => setShowDatePicker(!showDatePicker)}
               activeOpacity={0.7}
@@ -191,20 +279,15 @@ export default function SignupScreen() {
               <Text style={{ fontSize: 16 }}>📅</Text>
             </TouchableOpacity>
 
-            {/* Inline date picker */}
             {showDatePicker && (
               <View style={[styles.datePickerBox, { backgroundColor: theme.colors.surface }]}>
                 <DatePicker onConfirm={handleDateConfirmed} theme={theme} />
               </View>
             )}
 
-            {/* Success badge */}
-            {dateOfBirth && !showDatePicker && (
-              <Text style={styles.ageSuccess}>✓ Age verified — you're good to go!</Text>
-            )}
+            {dateOfBirth && !showDatePicker && <Text style={styles.ageSuccess}>✓ Age verified — you’re good to go!</Text>}
           </View>
 
-          {/* Email */}
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.colors.onBackground }]}>Email:</Text>
             <TextInput
@@ -223,7 +306,6 @@ export default function SignupScreen() {
             />
           </View>
 
-          {/* Password */}
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.colors.onBackground }]}>Password:</Text>
             <TextInput
@@ -242,7 +324,6 @@ export default function SignupScreen() {
             />
           </View>
 
-          {/* Confirm Password */}
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: theme.colors.onBackground }]}>Confirm Password:</Text>
             <TextInput
@@ -264,27 +345,23 @@ export default function SignupScreen() {
             )}
           </View>
 
-          {/* Terms */}
-          <TouchableOpacity
-            style={styles.checkboxContainer}
-            onPress={() => setAgreedToTerms(!agreedToTerms)}
-            activeOpacity={0.7}
-          >
+          <TouchableOpacity style={styles.checkboxContainer} onPress={() => setAgreedToTerms(!agreedToTerms)} activeOpacity={0.7}>
             <View style={[styles.checkbox, agreedToTerms && styles.checkboxChecked]}>
               {agreedToTerms && <Text style={styles.checkmark}>✓</Text>}
             </View>
             <Text style={[styles.checkboxText, { color: theme.colors.onSurface }]}>
-              I accept the{' '}
-              <Text style={styles.linkText}>Terms and Conditions</Text>
+              I accept the <Text style={styles.linkText}>Terms and Conditions</Text>
             </Text>
           </TouchableOpacity>
 
-          {/* Submit */}
+          {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
           <Button
             mode="contained"
-            onPress={() => { if (isFormValid() && !loading) handleSignup(); }}
+            onPress={handleSignup}
             loading={loading}
-            style={[styles.createButton, !isFormValid() && styles.createButtonDisabled]}
+            disabled={!isFormValid || loading}
+            style={[styles.createButton, (!isFormValid || loading) && styles.createButtonDisabled]}
             labelStyle={styles.buttonLabel}
             buttonColor="#000000"
             textColor="#FFFFFF"
@@ -305,15 +382,16 @@ export default function SignupScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:    { flex: 1 },
+  container: { flex: 1 },
   scrollContent: { paddingHorizontal: 32, paddingTop: 20, paddingBottom: 40 },
-  header:       { marginBottom: 20, alignItems: 'center' },
-  appName:      { fontSize: 30, fontWeight: 'bold', marginBottom: 6, textAlign: 'center' },
-  title:        { fontSize: 20, fontWeight: 'bold', textAlign: 'center' },
-  form:         { gap: 10 },
-  inputGroup:   { gap: 4 },
-  label:        { fontSize: 14, fontWeight: '500' },
-  input:        { backgroundColor: '#FFFFFF', height: 48 },
+  header: { marginBottom: 20, alignItems: 'center' },
+  appName: { fontSize: 30, fontWeight: 'bold', marginBottom: 6, textAlign: 'center' },
+  title: { fontSize: 20, fontWeight: 'bold', textAlign: 'center' },
+
+  form: { gap: 10 },
+  inputGroup: { gap: 4 },
+  label: { fontSize: 14, fontWeight: '500' },
+  input: { backgroundColor: '#FFFFFF', height: 48 },
   inputContent: { paddingHorizontal: 4 },
 
   dobButton: {
@@ -332,19 +410,32 @@ const styles = StyleSheet.create({
     borderColor: '#E5E5E5',
     marginTop: 6,
   },
-  ageError:   { color: '#CC0000', fontSize: 12, marginTop: 2 },
+
+  ageError: { color: '#CC0000', fontSize: 12, marginTop: 2 },
   ageSuccess: { color: '#16a34a', fontSize: 12, marginTop: 4, fontWeight: '500' },
 
   checkboxContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 6, marginBottom: 6 },
-  checkbox:          { width: 18, height: 18, borderWidth: 2, borderColor: '#000', borderRadius: 2, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
-  checkboxChecked:   { backgroundColor: '#000000' },
-  checkmark:         { color: '#FFFFFF', fontSize: 12, fontWeight: 'bold' },
-  checkboxText:      { flex: 1, fontSize: 13, lineHeight: 18 },
-  linkText:          { color: '#0066CC', textDecorationLine: 'underline' },
+  checkbox: {
+    width: 18,
+    height: 18,
+    borderWidth: 2,
+    borderColor: '#000',
+    borderRadius: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  checkboxChecked: { backgroundColor: '#000000' },
+  checkmark: { color: '#FFFFFF', fontSize: 12, fontWeight: 'bold' },
+  checkboxText: { flex: 1, fontSize: 13, lineHeight: 18 },
+  linkText: { color: '#0066CC', textDecorationLine: 'underline' },
 
-  createButton:         { paddingVertical: 10, borderRadius: 8, marginTop: 10, marginBottom: 10 },
+  errorText: { color: '#CC0000', fontSize: 13, textAlign: 'center', marginTop: 6 },
+
+  createButton: { paddingVertical: 10, borderRadius: 8, marginTop: 10, marginBottom: 10 },
   createButtonDisabled: { opacity: 0.6 },
-  buttonLabel:          { fontSize: 16, fontWeight: '600' },
-  footerText:           { fontSize: 13, textAlign: 'center', marginTop: 10, marginBottom: 20 },
-  loginLink:            { color: '#0066CC', fontWeight: '600' },
+
+  buttonLabel: { fontSize: 16, fontWeight: '600' },
+  footerText: { fontSize: 13, textAlign: 'center', marginTop: 10, marginBottom: 20 },
+  loginLink: { color: '#0066CC', fontWeight: '600' },
 });

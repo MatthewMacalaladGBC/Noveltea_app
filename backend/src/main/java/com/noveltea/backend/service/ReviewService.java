@@ -15,4 +15,6 @@ public interface ReviewService {
     ReviewDto.Response update(Long userId, Long reviewId, ReviewDto.UpdateRequest request);
 
     void delete(Long userId, Long reviewId);
+
+    long countByUserId(Long userId);
 }

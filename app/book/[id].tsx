@@ -1,7 +1,9 @@
+import { BookList, listsApi } from '@/src/api/client';
+import { useAuth } from '@/src/context/AuthContext';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Image, ScrollView, StyleSheet, View, Pressable } from 'react-native';
-import { Appbar, Button, Chip, Text, useTheme } from 'react-native-paper';
+import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Appbar, Button, Chip, Portal, Snackbar, Text, useTheme } from 'react-native-paper';
 
 interface BookDetails {
   key: string;
@@ -17,7 +19,7 @@ interface BookDetails {
   isbn_13?: string[];
   ratings_average?: number;
   ratings_count?: number;
-}
+}-0  
 
 // ===== STAR RATING COMPONENT =====
 interface StarRatingProps {
@@ -63,14 +65,7 @@ interface TagProps {
 }
 
 const Tag = ({ emoji, label, theme }: TagProps) => (
-  <View
-    style={[
-      styles.tag,
-      {
-        backgroundColor: theme.colors.surface,
-      },
-    ]}
-  >
+  <View style={[styles.tag, { backgroundColor: theme.colors.surface }]}>
     <Text style={[styles.tagText, { color: theme.colors.onSurface }]}>
       {emoji} {label}
     </Text>
@@ -81,18 +76,58 @@ const Tag = ({ emoji, label, theme }: TagProps) => (
 export default function BookDetailsScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { token } = useAuth();
+
   const [book, setBook] = useState<BookDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [inLibrary, setInLibrary] = useState(false);
-  const [userRating, setUserRating] = useState(0);
   const [authors, setAuthors] = useState('Unknown Author');
+  const [userRating, setUserRating] = useState(0);
 
+  // ── Library status ────────────────────────────────────────────────────────
+  const [libraryListId, setLibraryListId] = useState<number | null>(null);
+  const [libraryItemId, setLibraryItemId] = useState<number | null>(null);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+
+  // ── Add to List picker ────────────────────────────────────────────────────
+  const [userLists, setUserLists] = useState<BookList[]>([]);
+  const [listPickerVisible, setListPickerVisible] = useState(false);
+  const [addingToListId, setAddingToListId] = useState<number | null>(null);
+  const [snackMessage, setSnackMessage] = useState<string | null>(null);
+
+  // Fetch book details from OpenLibrary
   useEffect(() => {
     if (id) {
       fetchBookDetails(id);
     }
   }, [id]);
+
+  // Check library status and load user's custom lists
+  useEffect(() => {
+    if (!token || !id) return;
+
+    async function checkStatus() {
+      try {
+        const allLists = await listsApi.getMyLists(token!);
+        const libraryList = allLists.find(l => l.title === 'Library');
+        const otherLists  = allLists.filter(l => l.title !== 'Library');
+
+        setUserLists(otherLists);
+
+        if (libraryList) {
+          setLibraryListId(libraryList.listId);
+          const items = await listsApi.getListItems(libraryList.listId, token!);
+          const bookKey = `/works/${id}`;
+          const existing = items.find(item => item.bookId === bookKey);
+          if (existing) setLibraryItemId(existing.listItemId);
+        }
+      } catch {
+        // Fail silently — buttons still render, just without pre-set state
+      }
+    }
+
+    checkStatus();
+  }, [token, id]);
 
   const fetchBookDetails = async (bookId: string) => {
     setLoading(true);
@@ -111,21 +146,20 @@ export default function BookDetailsScreen() {
         throw new Error('Book not found');
       }
 
-  setBook(data);
+      setBook(data);
 
-  // Add this inside fetchBookDetails, after setBook(data):
-  if (data.authors && data.authors.length > 0) {
-    const authorPromises = data.authors.slice(0, 3).map(async (a: any) => {
-    const authorKey = a.author?.key?.replace('/authors/', '');
-    if (!authorKey) return null;
-    const res = await fetch(`https://openlibrary.org/authors/${authorKey}.json`);
-    const authorData = await res.json();
-    return authorData.name;
-  });
+      if (data.authors && data.authors.length > 0) {
+        const authorPromises = data.authors.slice(0, 3).map(async (a: any) => {
+          const authorKey = a.author?.key?.replace('/authors/', '');
+          if (!authorKey) return null;
+          const res = await fetch(`https://openlibrary.org/authors/${authorKey}.json`);
+          const authorData = await res.json();
+          return authorData.name;
+        });
 
-  const names = await Promise.all(authorPromises);
-  setAuthors(names.filter(Boolean).join(', ') || 'Unknown Author');
-}  
+        const names = await Promise.all(authorPromises);
+        setAuthors(names.filter(Boolean).join(', ') || 'Unknown Author');
+      }
     } catch (err) {
       console.error('Error fetching book details:', err);
       setError(err instanceof Error ? err.message : 'Failed to load book details');
@@ -141,21 +175,58 @@ export default function BookDetailsScreen() {
   };
 
   const getCoverUrl = (covers: number[] | undefined, size: 'S' | 'M' | 'L' = 'L') => {
-  if (!covers || covers.length === 0) return null;
-  return `https://covers.openlibrary.org/b/id/${covers[0]}-${size}.jpg`;
-};
+    if (!covers || covers.length === 0) return null;
+    return `https://covers.openlibrary.org/b/id/${covers[0]}-${size}.jpg`;
+  };
 
-  const handleAddToLibrary = () => {
-    setInLibrary(!inLibrary);
-    // TODO: Persist to async storage or backend
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
+  const handleAddToLibrary = async () => {
+    if (!token || !book || !libraryListId) return;
+
+    setLibraryLoading(true);
+    try {
+      if (libraryItemId !== null) {
+        await listsApi.removeFromList(libraryItemId, token);
+        setLibraryItemId(null);
+      } else {
+        const bookKey = `/works/${id}`;
+        const coverForApi = getCoverUrl(book.covers, 'M');
+        const result = await listsApi.addToList(
+          libraryListId, bookKey, book.title, authors, coverForApi, token
+        );
+        setLibraryItemId(result.listItemId);
+      }
+    } catch (e) {
+      console.error('Library action failed:', e);
+    } finally {
+      setLibraryLoading(false);
+    }
+  };
+
+  const handleAddToList = async (listId: number) => {
+    if (!token || !book) return;
+
+    const listName = userLists.find(l => l.listId === listId)?.title ?? 'list';
+    setAddingToListId(listId);
+    try {
+      const bookKey = `/works/${id}`;
+      const coverForApi = getCoverUrl(book.covers, 'M');
+      await listsApi.addToList(listId, bookKey, book.title, authors, coverForApi, token);
+      setListPickerVisible(false);
+      setSnackMessage(`Added to "${listName}"`);
+    } catch (e) {
+      console.error('Add to list failed:', e);
+    } finally {
+      setAddingToListId(null);
+    }
   };
 
   const handleRating = (rating: number) => {
     setUserRating(rating);
-    // TODO: Persist to async storage or backend
+    // TODO: Persist to backend
   };
 
-  // Map subjects to emoji tags
   const getTagEmoji = (subject: string): string => {
     const lowerSubject = subject.toLowerCase();
     if (lowerSubject.includes('fiction')) return '📘';
@@ -170,6 +241,8 @@ export default function BookDetailsScreen() {
     if (lowerSubject.includes('self')) return '💪';
     return '📖';
   };
+
+  // ── States ────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -207,13 +280,67 @@ export default function BookDetailsScreen() {
     );
   }
 
-// was: getCoverUrl(book.cover_id)
-  const coverUrl = getCoverUrl(book.covers);  const description = getDescription(book.description);
-  const subjects = book.subjects?.slice(0, 5) || [];
+  const coverUrl    = getCoverUrl(book.covers);
+  const description = getDescription(book.description);
+  const subjects    = book.subjects?.slice(0, 5) || [];
+  const inLibrary   = libraryItemId !== null;
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
+
+      {/* ── Add to List picker (bottom sheet) ──────────────────────────────── */}
+      <Modal
+        visible={listPickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setListPickerVisible(false)}
+      >
+        {/* Outer Pressable = backdrop dismiss */}
+        <Pressable style={styles.pickerBackdrop} onPress={() => setListPickerVisible(false)}>
+          {/* Inner Pressable consumes touches so tapping the sheet doesn't dismiss */}
+          <Pressable
+            style={[styles.pickerSheet, { backgroundColor: theme.colors.surface }]}
+            onPress={() => {}}
+          >
+            <Text variant="titleLarge" style={[styles.pickerTitle, { color: theme.colors.onSurface }]}>
+              Add to List
+            </Text>
+
+            {userLists.length === 0 ? (
+              <Text style={[styles.pickerEmpty, { color: theme.colors.onSurface }]}>
+                No lists yet — create one from your Profile!
+              </Text>
+            ) : (
+              <ScrollView style={styles.pickerScroll} showsVerticalScrollIndicator={false}>
+                {userLists.map(list => (
+                  <Pressable
+                    key={list.listId}
+                    style={({ pressed }) => [
+                      styles.pickerItem,
+                      { borderBottomColor: theme.colors.outline, opacity: pressed ? 0.6 : 1 },
+                    ]}
+                    onPress={() => handleAddToList(list.listId)}
+                    disabled={addingToListId !== null}
+                  >
+                    <Text variant="bodyLarge" style={{ color: theme.colors.onSurface }}>
+                      {list.title}
+                    </Text>
+                    {addingToListId === list.listId && (
+                      <ActivityIndicator size="small" color={theme.colors.primary} />
+                    )}
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+
+            <Pressable style={styles.pickerCancel} onPress={() => setListPickerVisible(false)}>
+              <Text style={[styles.pickerCancelText, { color: theme.colors.onSurface }]}>Cancel</Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
         <Appbar.Header style={{ backgroundColor: theme.colors.background, elevation: 0 }}>
           <Appbar.BackAction onPress={() => router.back()} />
@@ -221,14 +348,10 @@ export default function BookDetailsScreen() {
         </Appbar.Header>
 
         <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-          {/* BOOK COVER - CENTERED */}
+          {/* BOOK COVER */}
           <View style={styles.coverSection}>
             {coverUrl ? (
-              <Image
-                source={{ uri: coverUrl }}
-                style={styles.coverImage}
-                resizeMode="cover"
-              />
+              <Image source={{ uri: coverUrl }} style={styles.coverImage} resizeMode="cover" />
             ) : (
               <View style={[styles.placeholderCover, { backgroundColor: theme.colors.surface }]}>
                 <Text style={[styles.placeholderText, { color: theme.colors.onSurface }]}>No Cover</Text>
@@ -262,19 +385,65 @@ export default function BookDetailsScreen() {
 
           {/* ACTION BUTTONS */}
           <View style={styles.actionsContainer}>
+            {token ? (
+              <>
+                {/* Button 1: Add to Library / Remove from Library */}
+                <Pressable
+                  onPress={handleAddToLibrary}
+                  disabled={libraryLoading}
+                  style={[
+                    styles.libraryButton,
+                    { backgroundColor: inLibrary ? '#4ade80' : theme.colors.onBackground },
+                  ]}
+                >
+                  {libraryLoading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.libraryButtonText}>
+                      {inLibrary ? '✓ In Library' : 'Add to Library'}
+                    </Text>
+                  )}
+                </Pressable>
+
+                {/* Button 2: Add to List (opens picker) */}
+                <Pressable
+                  onPress={() => setListPickerVisible(true)}
+                  style={[styles.addToListButton, { borderColor: theme.colors.onBackground }]}
+                >
+                  <Text style={[styles.addToListButtonText, { color: theme.colors.onBackground }]}>
+                    + Add to List
+                  </Text>
+                </Pressable>
+              </>
+            ) : (
+              /* Guest: prompt to sign in */
+              <Pressable
+                onPress={() => router.push('/auth/welcome')}
+                style={[styles.libraryButton, { backgroundColor: theme.colors.onBackground }]}
+              >
+                <Text style={styles.libraryButtonText}>Sign in to save</Text>
+              </Pressable>
+            )}
+
             <Pressable
-              onPress={handleAddToLibrary}
+              onPress={() => {
+              const cleanId = (id || "").replace("/works/", "");
+              router.push({
+              pathname: "/reviews",
+              params: { bookId: cleanId, 
+                title: book.title,
+                author: authors,
+                coverImageURL: coverUrl || "",
+              },
+              });
+              }}
               style={[
                 styles.libraryButton,
-                {
-                  backgroundColor: inLibrary ? '#4ade80' : theme.colors.onBackground,
-                },
+                { backgroundColor: theme.colors.primary },
               ]}
-            >
-              <Text style={styles.libraryButtonText}>
-                {inLibrary ? '✓ In Library' : 'Add to Library'}
-              </Text>
-            </Pressable>
+>
+              <Text style={styles.libraryButtonText}>See Reviews</Text>
+              </Pressable>
 
             {/* INTERACTIVE STAR RATING */}
             <View style={[styles.ratingInputContainer, { backgroundColor: theme.colors.surface }]}>
@@ -288,55 +457,35 @@ export default function BookDetailsScreen() {
             </View>
           </View>
 
-          {/* Book Details */}
+          {/* BOOK DETAILS */}
           {(book.number_of_pages || book.language || book.publishers || book.isbn_13) && (
             <View style={styles.detailsSection}>
               <Text variant="titleLarge" style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
                 Details
               </Text>
-
               <View style={styles.detailsGrid}>
                 {book.number_of_pages && (
                   <View style={styles.detailItem}>
-                    <Text variant="bodySmall" style={[styles.detailLabel, { color: theme.colors.onSurface }]}>
-                      Pages
-                    </Text>
-                    <Text variant="bodyMedium" style={[styles.detailValue, { color: theme.colors.onBackground }]}>
-                      {book.number_of_pages}
-                    </Text>
+                    <Text variant="bodySmall" style={[styles.detailLabel, { color: theme.colors.onSurface }]}>Pages</Text>
+                    <Text variant="bodyMedium" style={[styles.detailValue, { color: theme.colors.onBackground }]}>{book.number_of_pages}</Text>
                   </View>
                 )}
-
                 {book.language && book.language.length > 0 && book.language[0] && (
                   <View style={styles.detailItem}>
-                    <Text variant="bodySmall" style={[styles.detailLabel, { color: theme.colors.onSurface }]}>
-                      Language
-                    </Text>
-                    <Text variant="bodyMedium" style={[styles.detailValue, { color: theme.colors.onBackground }]}>
-                      {book.language[0].toUpperCase()}
-                    </Text>
+                    <Text variant="bodySmall" style={[styles.detailLabel, { color: theme.colors.onSurface }]}>Language</Text>
+                    <Text variant="bodyMedium" style={[styles.detailValue, { color: theme.colors.onBackground }]}>{book.language[0].toUpperCase()}</Text>
                   </View>
                 )}
-
                 {book.publishers && book.publishers.length > 0 && book.publishers[0] && (
                   <View style={styles.detailItem}>
-                    <Text variant="bodySmall" style={[styles.detailLabel, { color: theme.colors.onSurface }]}>
-                      Publisher
-                    </Text>
-                    <Text variant="bodyMedium" style={[styles.detailValue, { color: theme.colors.onBackground }]}>
-                      {book.publishers[0]}
-                    </Text>
+                    <Text variant="bodySmall" style={[styles.detailLabel, { color: theme.colors.onSurface }]}>Publisher</Text>
+                    <Text variant="bodyMedium" style={[styles.detailValue, { color: theme.colors.onBackground }]}>{book.publishers[0]}</Text>
                   </View>
                 )}
-
                 {book.isbn_13 && book.isbn_13.length > 0 && book.isbn_13[0] && (
                   <View style={styles.detailItem}>
-                    <Text variant="bodySmall" style={[styles.detailLabel, { color: theme.colors.onSurface }]}>
-                      ISBN-13
-                    </Text>
-                    <Text variant="bodyMedium" style={[styles.detailValue, { color: theme.colors.onBackground }]}>
-                      {book.isbn_13[0]}
-                    </Text>
+                    <Text variant="bodySmall" style={[styles.detailLabel, { color: theme.colors.onSurface }]}>ISBN-13</Text>
+                    <Text variant="bodyMedium" style={[styles.detailValue, { color: theme.colors.onBackground }]}>{book.isbn_13[0]}</Text>
                   </View>
                 )}
               </View>
@@ -374,6 +523,16 @@ export default function BookDetailsScreen() {
           </View>
         </ScrollView>
       </View>
+
+      <Portal>
+        <Snackbar
+          visible={snackMessage !== null}
+          onDismiss={() => setSnackMessage(null)}
+          duration={2500}
+        >
+          {snackMessage}
+        </Snackbar>
+      </Portal>
     </>
   );
 }
@@ -500,6 +659,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontSize: 15,
   },
+  addToListButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+  },
+  addToListButtonText: {
+    fontWeight: '700',
+    fontSize: 15,
+  },
   ratingInputContainer: {
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -556,5 +727,49 @@ const styles = StyleSheet.create({
   description: {
     lineHeight: 24,
     opacity: 0.9,
+  },
+
+  // === LIST PICKER (bottom sheet) ===
+  pickerBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  pickerSheet: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 32,
+  },
+  pickerTitle: {
+    fontWeight: 'bold',
+    marginBottom: 16,
+  },
+  pickerScroll: {
+    maxHeight: 300,
+  },
+  pickerItem: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  pickerCancel: {
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  pickerCancelText: {
+    fontWeight: '600',
+    fontSize: 15,
+    opacity: 0.6,
+  },
+  pickerEmpty: {
+    opacity: 0.6,
+    textAlign: 'center',
+    paddingVertical: 24,
+    fontSize: 14,
   },
 });

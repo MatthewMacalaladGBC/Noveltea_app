@@ -17,10 +17,14 @@ public class UserController extends BaseController {
         this.userService = userService;
     }
 
-    // GET /users/{id}
+    // GET /users/{id} — public profile view, privacy-aware, no email returned
     @GetMapping("/{id}")
-    public ResponseEntity<UserDto.Response> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(userService.getById(id));
+    public ResponseEntity<UserDto.PublicResponse> getPublicUser(
+            @PathVariable Long id,
+            HttpServletRequest httpRequest
+    ) {
+        Long requestingUserId = getUserId(httpRequest);
+        return ResponseEntity.ok(userService.getPublicProfile(requestingUserId, id));
     }
 
     // PUT /users/{id} — caller can only update their own profile

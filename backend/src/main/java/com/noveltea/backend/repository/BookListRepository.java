@@ -22,4 +22,7 @@ public interface BookListRepository extends JpaRepository<BookList, Long> {
     // Search all public lists by title
     List<BookList> findByVisibilityTrueAndTitleContainingIgnoreCase(String title);
 
+    // Used to check whether a specific named list already exists for a user (e.g. "Library")
+    boolean existsByCreatorAndTitle(User creator, String title);
+
 }

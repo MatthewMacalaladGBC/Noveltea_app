@@ -139,6 +139,14 @@ public class ReviewServiceImpl implements ReviewService {
         bookService.recalculateRating(bookId);
     }
 
+    // ---------------- COUNT ----------------
+
+    @Override
+    @Transactional(readOnly = true)
+    public long countByUserId(Long userId) {
+        return reviewRepository.countByUser_UserId(userId);
+    }
+
     // ---------------- DTO MAPPING ----------------
 
     private ReviewDto.Response toResponse(Review r) {

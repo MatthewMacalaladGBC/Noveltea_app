@@ -4,16 +4,20 @@ import com.noveltea.backend.dto.UserDto;
 import com.noveltea.backend.exception.ForbiddenException;
 import com.noveltea.backend.exception.ResourceNotFoundException;
 import com.noveltea.backend.model.User;
+import com.noveltea.backend.repository.FollowerRepository;
 import com.noveltea.backend.repository.UserRepository;
+
 import org.springframework.stereotype.Service;
 
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
+    private final FollowerRepository followerRepository;
 
-    public UserService(UserRepository userRepository) {
+    public UserService(UserRepository userRepository, FollowerRepository followerRepository) {
         this.userRepository = userRepository;
+        this.followerRepository = followerRepository;
     }
 
     // GET /users/{id} — public read, no ownership check needed
@@ -22,6 +26,28 @@ public class UserService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + id));
 
         return toResponse(user);
+    }
+
+    // GET /users/{id} — privacy-aware public profile view
+    public UserDto.PublicResponse getPublicProfile(Long requestingUserId, Long requestedUserId) {
+        User requestingUser = userRepository.findById(requestingUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + requestingUserId));
+
+        User requestedUser = userRepository.findById(requestedUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + requestedUserId));
+
+        // Owner can always view their own profile regardless of privacy setting
+        boolean isOwner = requestingUserId.equals(requestedUserId);
+
+        if (
+            !isOwner
+            && requestedUser.getPrivacy().equals(true)
+            && !followerRepository.existsByFollowerAndFollowed(requestingUser, requestedUser)
+        ) {
+            throw new ForbiddenException("Cannot view a private user's account, unless following.");
+        }
+
+        return toPublicResponse(requestedUser);
     }
 
     // PUT /users/{id} — user themselves or an admin can update a profile
@@ -76,6 +102,17 @@ public class UserService {
                 .userId(user.getUserId())
                 .username(user.getUsername())
                 .email(user.getEmail())
+                .bio(user.getBio())
+                .privacy(user.getPrivacy())
+                .role(user.getRole() == null ? null : user.getRole().toString())
+                .joinDate(user.getJoinDate())
+                .build();
+    }
+
+    private UserDto.PublicResponse toPublicResponse(User user) {
+        return UserDto.PublicResponse.builder()
+                .userId(user.getUserId())
+                .username(user.getUsername())
                 .bio(user.getBio())
                 .privacy(user.getPrivacy())
                 .role(user.getRole() == null ? null : user.getRole().toString())

@@ -1,4 +1,5 @@
 import BookCard from '@/src/components/cards/BookCard';
+import { useAuth } from '@/src/context/AuthContext';
 import { useThemeContext } from '@/src/ThemeContext';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -68,6 +69,7 @@ const bookClubs = [
 export default function HomeScreen() {
   const theme = useTheme();
   const { isDark, toggleTheme } = useThemeContext();
+  const { user } = useAuth();
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -153,14 +155,16 @@ export default function HomeScreen() {
           iconColor={theme.colors.onBackground}
         />
         
-        <Button 
-          mode="outlined" 
-          style={styles.loginButton}
-          textColor={theme.colors.onBackground}
-          onPress={() => router.push('/auth/welcome')}
-        >
-          Login / Signup
-        </Button>
+        {!user && (
+          <Button
+            mode="outlined"
+            style={styles.loginButton}
+            textColor={theme.colors.onBackground}
+            onPress={() => router.push('/auth/welcome')}
+          >
+            Login / Signup
+          </Button>
+        )}
       </View>
 
       {/* Logo and Tagline */}

@@ -51,6 +51,7 @@ public class BookListDto {
         private String description;
         private Boolean visibility;
         private LocalDate creationDate;
+        private long bookCount;
 
     }
 

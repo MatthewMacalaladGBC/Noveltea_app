@@ -1,8 +1,26 @@
 import * as SecureStore from 'expo-secure-store';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { Platform } from 'react-native';
 import { authApi, UserProfile } from '../api/client';
 
 const TOKEN_KEY = 'noveltea_auth_token';
+
+// expo-secure-store uses native Keychain/Keystore APIs that don't exist in a
+// browser. Fall back to localStorage on web so login works during local testing.
+const tokenStorage = {
+  get: () =>
+    Platform.OS === 'web'
+      ? Promise.resolve(localStorage.getItem(TOKEN_KEY))
+      : SecureStore.getItemAsync(TOKEN_KEY),
+  set: (value: string) =>
+    Platform.OS === 'web'
+      ? Promise.resolve(localStorage.setItem(TOKEN_KEY, value))
+      : SecureStore.setItemAsync(TOKEN_KEY, value),
+  remove: () =>
+    Platform.OS === 'web'
+      ? Promise.resolve(localStorage.removeItem(TOKEN_KEY))
+      : SecureStore.deleteItemAsync(TOKEN_KEY),
+};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -44,7 +62,7 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     async function restoreSession() {
       try {
-        const stored = await SecureStore.getItemAsync(TOKEN_KEY);
+        const stored = await tokenStorage.get();
         if (stored) {
           // Validate the stored token is still accepted by the backend
           const profile = await authApi.me(stored);
@@ -54,7 +72,7 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
       } catch {
         // Token is missing, expired, or backend is unreachable; clear it and
         // stay logged out. The user will be prompted to log in again
-        await SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {});
+        await tokenStorage.remove().catch(() => {});
       } finally {
         setIsLoading(false);
       }
@@ -68,13 +86,13 @@ export function AuthContextProvider({ children }: { children: ReactNode }) {
     const { accessToken } = await authApi.login(email, password);
     // Fetch the full profile immediately so the rest of the app has all fields
     const profile = await authApi.me(accessToken);
-    await SecureStore.setItemAsync(TOKEN_KEY, accessToken);
+    await tokenStorage.set(accessToken);
     setToken(accessToken);
     setUser(profile);
   };
 
   const logout = async () => {
-    await SecureStore.deleteItemAsync(TOKEN_KEY).catch(() => {});
+    await tokenStorage.remove().catch(() => {});
     setToken(null);
     setUser(null);
   };

@@ -7,7 +7,7 @@ export default function Register() {
       <Text style={styles.title}>NovelTea</Text>
       <Text style={styles.subtitle}>Create Account</Text>
 
-      <Text style={styles.label}>Full Name:</Text>
+      <Text style={styles.label}>Username:</Text>
       <TextInput style={styles.input} />
 
       <Text style={styles.label}>Email:</Text>
