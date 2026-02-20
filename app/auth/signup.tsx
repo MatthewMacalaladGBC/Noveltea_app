@@ -144,7 +144,7 @@ export default function SignupScreen() {
   const theme = useTheme();
   const { isDark } = useThemeContext();
 
-  const [fullName, setFullName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -161,14 +161,14 @@ export default function SignupScreen() {
 
   const isFormValid = useMemo(() => {
     return (
-      fullName.trim() !== '' &&
+      username.trim() !== '' &&
       email.trim() !== '' &&
       password.length >= 6 &&
       password === confirmPassword &&
       agreedToTerms &&
       dateOfBirth !== null
     );
-  }, [fullName, email, password, confirmPassword, agreedToTerms, dateOfBirth]);
+  }, [username, email, password, confirmPassword, agreedToTerms, dateOfBirth]);
 
   const handleDateConfirmed = (d: Date) => {
     setDateOfBirth(d);
@@ -177,10 +177,10 @@ export default function SignupScreen() {
 
   const handleSignup = async () => {
     // extra guard (so we NEVER send blank username)
-    console.log("FULLNAME RIGHT BEFORE SEND =", fullName);
-    const username = fullName.trim();
-    if (!username) {
-      setError('Please enter your full name.');
+    const trimmedUsername = username.trim();
+    console.log("username RIGHT BEFORE SEND =", trimmedUsername);
+    if (!trimmedUsername) {
+      setError('Please enter a valid username.');
       return;
     }
     if (!isFormValid || loading) return;
@@ -190,7 +190,7 @@ export default function SignupScreen() {
 
     try {
       const payload = {
-        username,
+        username: trimmedUsername,
         email: email.trim(),
         password,
       };
@@ -244,13 +244,13 @@ export default function SignupScreen() {
 
         <View style={styles.form}>
           <View style={styles.inputGroup}>
-            <Text style={[styles.label, { color: theme.colors.onBackground }]}>Full Name:</Text>
+            <Text style={[styles.label, { color: theme.colors.onBackground }]}>Username:</Text>
             <TextInput
-              value={fullName}
-              onChangeText={setFullName}
-              placeholder="Jane Doe"
+              value={username}
+              onChangeText={setUsername}
+              placeholder="Jane_Doe"
               mode="outlined"
-              autoCapitalize="words"
+              autoCapitalize="none"
               style={styles.input}
               outlineColor="#E5E5E5"
               activeOutlineColor="#000000"
