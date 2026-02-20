@@ -2,7 +2,7 @@ import { useAuth } from '@/src/context/AuthContext';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Button, Text, TextInput, useTheme } from 'react-native-paper';
+import { Appbar, Button, Text, TextInput, useTheme } from 'react-native-paper';
 
 export default function LoginScreen() {
   const theme = useTheme();
@@ -33,6 +33,11 @@ export default function LoginScreen() {
         showsVerticalScrollIndicator={true}
         scrollEnabled={true}
       >
+        {/* Back button */}
+        <Appbar.Header style={{ backgroundColor: 'transparent', elevation: 0, marginBottom: -16 }}>
+          <Appbar.BackAction onPress={() => router.push('/auth/welcome')} color={theme.colors.onBackground} />
+        </Appbar.Header>
+
         {/* Header */}
         <View style={styles.header}>
           <Text variant="displaySmall" style={[styles.appName, { color: theme.colors.onBackground }]}>
@@ -138,7 +143,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     paddingHorizontal: 32,
-    paddingTop: 80,
+    paddingTop: 20,
     paddingBottom: 40,
   },
   header: {
