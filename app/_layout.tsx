@@ -4,6 +4,7 @@ import { PaperProvider } from 'react-native-paper';
 import 'react-native-reanimated';
 import { NovelteaTheme } from '../src/theme';
 import { ThemeContextProvider, useThemeContext } from '../src/ThemeContext';
+import { AuthContextProvider } from '../src/context/AuthContext';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -44,7 +45,9 @@ function RootLayoutContent() {
 export default function RootLayout() {
   return (
     <ThemeContextProvider>
-      <RootLayoutContent />
+      <AuthContextProvider>
+        <RootLayoutContent />
+      </AuthContextProvider>
     </ThemeContextProvider>
   );
 }
