@@ -1,4 +1,4 @@
-import { useThemeContext } from '@/src/ThemeContext';
+import { useAuth } from '@/src/context/AuthContext';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -6,21 +6,23 @@ import { Button, Text, TextInput, useTheme } from 'react-native-paper';
 
 export default function LoginScreen() {
   const theme = useTheme();
-  const { isDark } = useThemeContext();
+  const { login } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleLogin = async () => {
     setLoading(true);
-    // TODO: Implement actual login logic
-    console.log('Login with:', email, password);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setLoading(false);
+    setError(null);
+    try {
+      await login(email, password);
       router.replace('/(tabs)');
-    }, 1000);
+    } catch (e: any) {
+      setError(e.message ?? 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -82,12 +84,16 @@ export default function LoginScreen() {
           </View>
 
           {/* Forgot Password Link */}
-          <Text 
+          <Text
             style={styles.forgotPassword}
             onPress={() => console.log('Forgot password')}
           >
             Forgot password?
           </Text>
+
+          {error && (
+            <Text style={styles.errorText}>{error}</Text>
+          )}
 
           <Button
             mode="contained"
@@ -197,5 +203,10 @@ const styles = StyleSheet.create({
   signupLink: {
     color: '#0066CC',
     fontWeight: '600',
+  },
+  errorText: {
+    fontSize: 13,
+    color: '#CC0000',
+    textAlign: 'center',
   },
 });
