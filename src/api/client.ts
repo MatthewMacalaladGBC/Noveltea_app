@@ -69,6 +69,30 @@ async function request<T>(
   return body as T;
 }
 
+// Mirrors BookListDto.Response
+export interface BookList {
+  listId: number;
+  creatorId: number;
+  creatorUsername: string;
+  title: string;
+  description: string | null;
+  visibility: boolean;
+  creationDate: string; // "YYYY-MM-DD"
+  bookCount: number;
+}
+
+// Mirrors ListItemDto.Response
+export interface ListItem {
+  listItemId: number;
+  listId: number;
+  bookId: string;        // OpenLibrary key e.g. "/works/OL1234W"
+  bookTitle: string;
+  bookAuthor: string;
+  coverImageUrl: string | null;
+  sortOrder: number;
+  addedDate: string;     // "YYYY-MM-DD"
+}
+
 // ---------------------------------------------------------------------------
 // Auth endpoints
 // ---------------------------------------------------------------------------
@@ -89,4 +113,61 @@ export const authApi = {
   // Fetches the full profile for the currently authenticated user
   me: (token: string) =>
     request<UserProfile>('/auth/me', { token }),
+};
+
+// ---------------------------------------------------------------------------
+// List endpoints
+// ---------------------------------------------------------------------------
+
+export const listsApi = {
+  // Returns all lists owned by the authenticated user (including private)
+  getMyLists: (token: string) =>
+    request<BookList[]>('/lists/me', { token }),
+
+  // Returns metadata for a single list
+  getListById: (listId: number, token: string) =>
+    request<BookList>(`/lists/${listId}`, { token }),
+
+  // Returns all items in a list, ordered by sortOrder
+  getListItems: (listId: number, token: string) =>
+    request<ListItem[]>(`/list-items/list/${listId}`, { token }),
+
+  // Adds a book to a list; book metadata is passed so the backend can cache it
+  addToList: (
+    listId: number,
+    bookId: string,
+    title: string,
+    author: string,
+    coverImageUrl: string | null,
+    token: string,
+  ) =>
+    request<ListItem>('/list-items', {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ listId, bookId, title, author, coverImageUrl }),
+    }),
+
+  // Removes a book from a list
+  removeFromList: (listItemId: number, token: string) =>
+    request<void>(`/list-items/${listItemId}`, { method: 'DELETE', token }),
+
+  // Creates a new list
+  createList: (title: string, description: string | null, visibility: boolean, token: string) =>
+    request<BookList>('/lists', {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ title, description, visibility }),
+    }),
+
+  // Updates an existing list's title, description, and/or visibility
+  updateList: (listId: number, title: string, description: string | null, visibility: boolean, token: string) =>
+    request<BookList>(`/lists/${listId}`, {
+      method: 'PUT',
+      token,
+      body: JSON.stringify({ title, description, visibility }),
+    }),
+
+  // Deletes a list permanently
+  deleteList: (listId: number, token: string) =>
+    request<void>(`/lists/${listId}`, { method: 'DELETE', token }),
 };

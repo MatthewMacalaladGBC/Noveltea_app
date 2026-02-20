@@ -6,6 +6,7 @@ import com.noveltea.backend.exception.ResourceNotFoundException;
 import com.noveltea.backend.model.BookList;
 import com.noveltea.backend.model.User;
 import com.noveltea.backend.repository.BookListRepository;
+import com.noveltea.backend.repository.ListItemRepository;
 import com.noveltea.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import java.util.List;
 public class BookListService {
 
     private final BookListRepository bookListRepository;
+    private final ListItemRepository listItemRepository;
     private final UserRepository userRepository;
 
     // ----- CORE OPERATIONS -----
@@ -75,12 +77,17 @@ public class BookListService {
 
     /**
      * Deletes a book list. Only the creator can delete.
+     * The "Library" list is system-managed and cannot be deleted by anyone.
      * Associated ListItems and BookListFollowers are cleaned up by ON DELETE CASCADE.
      */
     @Transactional
     public void deleteList(Long userId, Long listId) {
         BookList list = bookListRepository.findById(listId)
                 .orElseThrow(() -> new ResourceNotFoundException("List not found: " + listId));
+
+        if ("Library".equals(list.getTitle())) {
+            throw new ForbiddenException("The Library list cannot be deleted");
+        }
 
         if (!list.getCreator().getUserId().equals(userId)) {
             throw new ForbiddenException("Not authorized to delete this list");
@@ -154,6 +161,7 @@ public class BookListService {
                 .description(list.getDescription())
                 .visibility(list.getVisibility())
                 .creationDate(list.getCreationDate())
+                .bookCount(listItemRepository.countByListId(list.getListId()))
                 .build();
     }
 

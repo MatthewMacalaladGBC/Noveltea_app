@@ -31,7 +31,9 @@ function RootLayoutContent() {
     <PaperProvider theme={currentTheme}>
         <Stack>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="book/[id]" options={{ headerShown: false }} />  {/*  Added this */}
+          <Stack.Screen name="book/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="list/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="lists" options={{ headerShown: false }} />
           <Stack.Screen name="auth/welcome" options={{ headerShown: false }} />
           <Stack.Screen name="auth/login" options={{ headerShown: false }} />
           <Stack.Screen name="auth/signup" options={{ headerShown: false }} />

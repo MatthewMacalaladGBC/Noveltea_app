@@ -3,7 +3,9 @@ package com.noveltea.backend.service;
 import com.noveltea.backend.dto.AuthResponse;
 import com.noveltea.backend.dto.LoginRequest;
 import com.noveltea.backend.dto.RegisterRequest;
+import com.noveltea.backend.model.BookList;
 import com.noveltea.backend.model.User;
+import com.noveltea.backend.repository.BookListRepository;
 import com.noveltea.backend.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -14,13 +16,16 @@ public class AuthServiceImpl implements AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final BookListRepository bookListRepository;
 
     public AuthServiceImpl(UserRepository userRepository,
                            PasswordEncoder passwordEncoder,
-                           JwtService jwtService) {
+                           JwtService jwtService,
+                           BookListRepository bookListRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.bookListRepository = bookListRepository;
     }
 
     @Override
@@ -43,6 +48,14 @@ public class AuthServiceImpl implements AuthService {
                 .build();
 
         User saved = userRepository.save(user);
+
+        // Every new user gets a private "Library" list created automatically
+        bookListRepository.save(BookList.builder()
+                .creator(saved)
+                .title("Library")
+                .description("My personal library")
+                .visibility(false)
+                .build());
 
         String token = jwtService.generateAccessToken(saved.getUserId(), saved.getEmail());
 

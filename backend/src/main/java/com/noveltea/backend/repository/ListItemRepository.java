@@ -4,6 +4,8 @@ import com.noveltea.backend.model.Book;
 import com.noveltea.backend.model.BookList;
 import com.noveltea.backend.model.ListItem;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -24,7 +26,8 @@ public interface ListItemRepository extends JpaRepository<ListItem, Long> {
     // Get the item with the highest sortOrder (used for assigning position of next added)
     Optional<ListItem> findTopByBookListOrderBySortOrderDesc(BookList bookList);
 
-    // Total number of books in a list
-    long countByBookList(BookList bookList);
+    // Total number of books in a list — explicit query avoids entity-identity issues with derived count
+    @Query("SELECT COUNT(li) FROM ListItem li WHERE li.bookList.listId = :listId")
+    long countByListId(@Param("listId") Long listId);
 
 }
