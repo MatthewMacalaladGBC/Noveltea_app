@@ -19,7 +19,7 @@ interface BookDetails {
   isbn_13?: string[];
   ratings_average?: number;
   ratings_count?: number;
-}
+}-0  
 
 // ===== STAR RATING COMPONENT =====
 interface StarRatingProps {
@@ -509,11 +509,6 @@ export default function BookDetailsScreen() {
           visible={snackMessage !== null}
           onDismiss={() => setSnackMessage(null)}
           duration={2500}
-          theme={{
-            colors: {
-              onSurface: '#4CAF50', // Example: Green background
-            },
-          }}
         >
           {snackMessage}
         </Snackbar>
