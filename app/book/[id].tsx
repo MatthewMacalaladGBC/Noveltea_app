@@ -425,6 +425,26 @@ export default function BookDetailsScreen() {
               </Pressable>
             )}
 
+            <Pressable
+              onPress={() => {
+              const cleanId = (id || "").replace("/works/", "");
+              router.push({
+              pathname: "/reviews",
+              params: { bookId: cleanId, 
+                title: book.title,
+                author: authors,
+                coverImageURL: coverUrl || "",
+              },
+              });
+              }}
+              style={[
+                styles.libraryButton,
+                { backgroundColor: theme.colors.primary },
+              ]}
+>
+              <Text style={styles.libraryButtonText}>See Reviews</Text>
+              </Pressable>
+
             {/* INTERACTIVE STAR RATING */}
             <View style={[styles.ratingInputContainer, { backgroundColor: theme.colors.surface }]}>
               <StarRating
