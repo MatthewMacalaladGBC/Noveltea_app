@@ -215,6 +215,12 @@ export const followersApi = {
 
   unfollow: (targetUserId: number, token: string) =>
     request<string>(`/followers/${targetUserId}`, { method: 'DELETE', token }),
+
+  getFollowersList: (userId: number, token: string) =>
+    request<PublicUserProfile[]>(`/followers/${userId}/followers/list`, { token }),
+
+  getFollowingList: (userId: number, token: string) =>
+    request<PublicUserProfile[]>(`/followers/${userId}/following/list`, { token }),
 };
 
 // ---------------------------------------------------------------------------

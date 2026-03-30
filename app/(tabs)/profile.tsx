@@ -172,22 +172,28 @@ export default function ProfileScreen() {
         </View>
 
         <View style={styles.statsContainer}>
-          <View style={styles.statItem}>
+          <Pressable
+            style={styles.statItem}
+            onPress={() => router.push({ pathname: '/follows/[id]', params: { id: String(user.userId), tab: 'followers' } } as any)}
+          >
             <Text variant="headlineMedium" style={[styles.statNumber, { color: theme.colors.onBackground }]}>
               {followerCount}
             </Text>
             <Text variant="bodySmall" style={[styles.statLabel, { color: theme.colors.onSurface }]}>
               Followers
             </Text>
-          </View>
-          <View style={styles.statItem}>
+          </Pressable>
+          <Pressable
+            style={styles.statItem}
+            onPress={() => router.push({ pathname: '/follows/[id]', params: { id: String(user.userId), tab: 'following' } } as any)}
+          >
             <Text variant="headlineMedium" style={[styles.statNumber, { color: theme.colors.onBackground }]}>
               {followingCount}
             </Text>
             <Text variant="bodySmall" style={[styles.statLabel, { color: theme.colors.onSurface }]}>
               Following
             </Text>
-          </View>
+          </Pressable>
           <View style={styles.statItem}>
             <Text variant="headlineMedium" style={[styles.statNumber, { color: theme.colors.onBackground }]}>
               {reviewCount}

@@ -1,11 +1,14 @@
 package com.noveltea.backend.controller;
 
+import com.noveltea.backend.dto.UserDto;
 import com.noveltea.backend.model.User;
 import com.noveltea.backend.repository.UserRepository;
 import com.noveltea.backend.service.FollowerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/followers")
@@ -49,6 +52,34 @@ public class FollowerController {
     @GetMapping("/{userId}/following")
     public long countFollowing(@PathVariable Long userId) {
         return followerService.countFollowing(userId);
+    }
+
+    @GetMapping("/{userId}/followers/list")
+    public List<UserDto.PublicResponse> getFollowersList(@PathVariable Long userId) {
+        return followerService.getFollowers(userId).stream()
+                .map(u -> UserDto.PublicResponse.builder()
+                        .userId(u.getUserId())
+                        .username(u.getUsername())
+                        .bio(u.getBio())
+                        .privacy(u.getPrivacy())
+                        .role(u.getRole())
+                        .joinDate(u.getJoinDate())
+                        .build())
+                .toList();
+    }
+
+    @GetMapping("/{userId}/following/list")
+    public List<UserDto.PublicResponse> getFollowingList(@PathVariable Long userId) {
+        return followerService.getFollowing(userId).stream()
+                .map(u -> UserDto.PublicResponse.builder()
+                        .userId(u.getUserId())
+                        .username(u.getUsername())
+                        .bio(u.getBio())
+                        .privacy(u.getPrivacy())
+                        .role(u.getRole())
+                        .joinDate(u.getJoinDate())
+                        .build())
+                .toList();
     }
 
     @GetMapping("/{targetUserId}/is-following")
