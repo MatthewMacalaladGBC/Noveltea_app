@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Appbar, Button, Text, TextInput, useTheme } from "react-native-paper";
 import {
@@ -308,8 +308,16 @@ export default function ReviewsScreen() {
                   }}
                 >
                   <Text style={{ fontWeight: "700" }}>
-                    ⭐ {toNumber(r.rating).toFixed(1)} • {r.username || "User"}
-                    {isMine ? " (you)" : ""}
+                    ⭐ {toNumber(r.rating).toFixed(1)} •{" "}
+                    {token && !isMine ? (
+                      <Pressable onPress={() => router.push({ pathname: '/user/[id]', params: { id: String(r.userId) } } as any)}>
+                        <Text style={{ fontWeight: "700", textDecorationLine: "underline" }}>
+                          {r.username || "User"}
+                        </Text>
+                      </Pressable>
+                    ) : (
+                      <>{r.username || "User"}{isMine ? " (you)" : ""}</>
+                    )}
                   </Text>
 
                   {!isEditing ? (

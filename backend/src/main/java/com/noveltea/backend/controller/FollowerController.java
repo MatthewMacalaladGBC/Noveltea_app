@@ -50,4 +50,13 @@ public class FollowerController {
     public long countFollowing(@PathVariable Long userId) {
         return followerService.countFollowing(userId);
     }
+
+    @GetMapping("/{targetUserId}/is-following")
+    public boolean isFollowing(@PathVariable Long targetUserId, Authentication authentication) {
+        String emailFromJwt = authentication.getName();
+        Long followerId = userRepository.findByEmail(emailFromJwt)
+                .map(User::getUserId)
+                .orElseThrow(() -> new RuntimeException("User not found for email: " + emailFromJwt));
+        return followerService.isFollowing(followerId, targetUserId);
+    }
 }

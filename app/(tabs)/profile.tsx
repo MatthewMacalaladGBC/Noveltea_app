@@ -1,4 +1,4 @@
-import { BookList, ListItem, listsApi, reviewsApi } from '@/src/api/client';
+import { BookList, ListItem, followersApi, listsApi, reviewsApi } from '@/src/api/client';
 import BookCard from '@/src/components/cards/BookCard';
 import CreateListModal from '@/src/components/modals/CreateListModal';
 import { useAuth } from '@/src/context/AuthContext';
@@ -23,6 +23,8 @@ export default function ProfileScreen() {
   const [listsLoading, setListsLoading] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
   const [reviewCount, setReviewCount] = useState<number>(0);
+  const [followerCount, setFollowerCount] = useState<number>(0);
+  const [followingCount, setFollowingCount] = useState<number>(0);
 
   useFocusEffect(
     useCallback(() => {
@@ -33,13 +35,17 @@ export default function ProfileScreen() {
 
       async function fetchLists() {
         try {
-          const [allLists, count] = await Promise.all([
+          const [allLists, count, followers, following] = await Promise.all([
             listsApi.getMyLists(token!),
             reviewsApi.getMyCount(token!),
+            followersApi.getFollowerCount(user!.userId, token!),
+            followersApi.getFollowingCount(user!.userId, token!),
           ]);
           if (cancelled) return;
 
           setReviewCount(count);
+          setFollowerCount(followers);
+          setFollowingCount(following);
 
           // Exclude Library, sort by most recently created, take the top few
           const userLists = allLists
@@ -165,11 +171,10 @@ export default function ProfileScreen() {
           ) : null}
         </View>
 
-        {/* Stats — values are placeholders until following / review integration is complete */}
         <View style={styles.statsContainer}>
           <View style={styles.statItem}>
             <Text variant="headlineMedium" style={[styles.statNumber, { color: theme.colors.onBackground }]}>
-              0
+              {followerCount}
             </Text>
             <Text variant="bodySmall" style={[styles.statLabel, { color: theme.colors.onSurface }]}>
               Followers
@@ -177,10 +182,10 @@ export default function ProfileScreen() {
           </View>
           <View style={styles.statItem}>
             <Text variant="headlineMedium" style={[styles.statNumber, { color: theme.colors.onBackground }]}>
-              0
+              {followingCount}
             </Text>
             <Text variant="bodySmall" style={[styles.statLabel, { color: theme.colors.onSurface }]}>
-              Followed
+              Following
             </Text>
           </View>
           <View style={styles.statItem}>

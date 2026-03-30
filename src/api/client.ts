@@ -14,11 +14,21 @@ export interface AuthResponse {
   };
 }
 
-// Mirrors UserDto.Response from the backend
+// Mirrors UserDto.Response from the backend (own profile — includes email)
 export interface UserProfile {
   userId: number;
   username: string;
   email: string;
+  bio: string | null;
+  privacy: boolean;
+  role: string;
+  joinDate: string; // "YYYY-MM-DD"
+}
+
+// Mirrors UserDto.PublicResponse (other users — no email)
+export interface PublicUserProfile {
+  userId: number;
+  username: string;
   bio: string | null;
   privacy: boolean;
   role: string;
@@ -170,6 +180,41 @@ export const listsApi = {
   // Deletes a list permanently
   deleteList: (listId: number, token: string) =>
     request<void>(`/lists/${listId}`, { method: 'DELETE', token }),
+
+  // Returns public lists for another user
+  getUserLists: (userId: number, token: string) =>
+    request<BookList[]>(`/lists/user/${userId}`, { token }),
+};
+
+// ---------------------------------------------------------------------------
+// User endpoints
+// ---------------------------------------------------------------------------
+
+export const usersApi = {
+  // Returns public profile for any user (no email field)
+  getPublicProfile: (userId: number, token: string) =>
+    request<PublicUserProfile>(`/users/${userId}`, { token }),
+};
+
+// ---------------------------------------------------------------------------
+// Follower endpoints
+// ---------------------------------------------------------------------------
+
+export const followersApi = {
+  getFollowerCount: (userId: number, token: string) =>
+    request<number>(`/followers/${userId}/followers`, { token }),
+
+  getFollowingCount: (userId: number, token: string) =>
+    request<number>(`/followers/${userId}/following`, { token }),
+
+  isFollowing: (targetUserId: number, token: string) =>
+    request<boolean>(`/followers/${targetUserId}/is-following`, { token }),
+
+  follow: (targetUserId: number, token: string) =>
+    request<string>(`/followers/${targetUserId}`, { method: 'POST', token }),
+
+  unfollow: (targetUserId: number, token: string) =>
+    request<string>(`/followers/${targetUserId}`, { method: 'DELETE', token }),
 };
 
 // ---------------------------------------------------------------------------
