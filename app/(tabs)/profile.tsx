@@ -194,14 +194,17 @@ export default function ProfileScreen() {
               Following
             </Text>
           </Pressable>
-          <View style={styles.statItem}>
+          <Pressable
+            style={styles.statItem}
+            onPress={() => router.push({ pathname: '/user-reviews/[username]', params: { username: user.username } } as any)}
+          >
             <Text variant="headlineMedium" style={[styles.statNumber, { color: theme.colors.onBackground }]}>
               {reviewCount}
             </Text>
             <Text variant="bodySmall" style={[styles.statLabel, { color: theme.colors.onSurface }]}>
               Reviews
             </Text>
-          </View>
+          </Pressable>
         </View>
 
         <Divider style={styles.divider} />

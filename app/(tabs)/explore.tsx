@@ -141,10 +141,10 @@ export default function ExploreScreen() {
       const res = await fetch(
         'https://openlibrary.org/search.json?q=trending&sort=rating&limit=20&fields=key,title,author_name,first_publish_year,cover_i'
       );
-      const data = await res.json();
-      setResults(data.docs ?? []);
-    } catch (e) {
-      console.error('Trending fetch error:', e);
+      const data = res.ok ? await res.json().catch(() => null) : null;
+      setResults(data?.docs ?? []);
+    } catch {
+      setResults([]);
     } finally {
       setLoading(false);
     }
@@ -167,10 +167,10 @@ export default function ExploreScreen() {
       const res = await fetch(
         `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=20&fields=key,title,author_name,first_publish_year,cover_i`
       );
-      const data = await res.json();
-      setResults(data.docs ?? []);
-    } catch (e) {
-      console.error('Search error:', e);
+      const data = res.ok ? await res.json().catch(() => null) : null;
+      setResults(data?.docs ?? []);
+    } catch {
+      setResults([]);
     } finally {
       setLoading(false);
     }

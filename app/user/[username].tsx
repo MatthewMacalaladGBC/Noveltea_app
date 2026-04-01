@@ -8,8 +8,7 @@ import { Appbar, Avatar, Button, Divider, Text, useTheme } from 'react-native-pa
 export default function UserProfileScreen() {
   const theme = useTheme();
   const { user: me, token } = useAuth();
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const userId = Number(id);
+  const { username } = useLocalSearchParams<{ username: string }>();
 
   const [profile, setProfile] = useState<PublicUserProfile | null>(null);
   const [followerCount, setFollowerCount] = useState(0);
@@ -20,10 +19,11 @@ export default function UserProfileScreen() {
   const [followLoading, setFollowLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isOwnProfile = me?.userId === userId;
+  // isOwnProfile resolved after profile loads — compare against me.userId
+  const isOwnProfile = profile != null && me?.userId === profile.userId;
 
   useEffect(() => {
-    if (!token || !userId) return;
+    if (!token || !username) return;
 
     let cancelled = false;
 
@@ -32,29 +32,32 @@ export default function UserProfileScreen() {
         setLoading(true);
         setError(null);
 
-        const [profileData, followers, following] = await Promise.all([
-          usersApi.getPublicProfile(userId, token!),
-          followersApi.getFollowerCount(userId, token!),
-          followersApi.getFollowingCount(userId, token!),
-        ]);
+        // Resolve username → profile first, then fan out with the numeric userId
+        const profileData = await usersApi.getPublicProfileByUsername(username, token!);
+        if (cancelled) return;
 
+        const ownProfile = me?.userId === profileData.userId;
+
+        const [followers, following] = await Promise.all([
+          followersApi.getFollowerCount(profileData.userId, token!),
+          followersApi.getFollowingCount(profileData.userId, token!),
+        ]);
         if (cancelled) return;
 
         setProfile(profileData);
         setFollowerCount(followers);
         setFollowingCount(following);
 
-        // Follow status + public lists in parallel (only needed for other users)
-        if (!isOwnProfile) {
+        if (!ownProfile) {
           const [followStatus, publicLists] = await Promise.all([
-            followersApi.isFollowing(userId, token!),
-            !profileData.privacy ? listsApi.getUserLists(userId, token!) : Promise.resolve<BookList[]>([]),
+            followersApi.isFollowing(profileData.userId, token!),
+            !profileData.privacy ? listsApi.getUserLists(profileData.userId, token!) : Promise.resolve<BookList[]>([]),
           ]);
           if (cancelled) return;
           setFollowing(followStatus);
           setLists(publicLists);
         } else if (!profileData.privacy) {
-          const publicLists = await listsApi.getUserLists(userId, token!);
+          const publicLists = await listsApi.getUserLists(profileData.userId, token!);
           if (cancelled) return;
           setLists(publicLists);
         }
@@ -67,18 +70,18 @@ export default function UserProfileScreen() {
 
     load();
     return () => { cancelled = true; };
-  }, [userId, token]);
+  }, [username, token]);
 
   const handleFollowToggle = async () => {
-    if (!token) return;
+    if (!token || !profile) return;
     try {
       setFollowLoading(true);
       if (following) {
-        await followersApi.unfollow(userId, token);
+        await followersApi.unfollow(profile.userId, token);
         setFollowing(false);
         setFollowerCount(c => c - 1);
       } else {
-        await followersApi.follow(userId, token);
+        await followersApi.follow(profile.userId, token);
         setFollowing(true);
         setFollowerCount(c => c + 1);
       }
@@ -162,7 +165,7 @@ export default function UserProfileScreen() {
           </View>
         </View>
 
-        {/* Follow / Unfollow button — only for other users when logged in */}
+        {/* Follow / Unfollow — only for other users when logged in */}
         {!isOwnProfile && token ? (
           <View style={styles.followContainer}>
             <Button

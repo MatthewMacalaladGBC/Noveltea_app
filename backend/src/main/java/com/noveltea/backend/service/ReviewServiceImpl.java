@@ -139,6 +139,20 @@ public class ReviewServiceImpl implements ReviewService {
         bookService.recalculateRating(bookId);
     }
 
+    // ---------------- BY USER ----------------
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ReviewDto.Response> getByUserId(Long requesterId, Long targetUserId) {
+        List<Review> reviews;
+        if (requesterId != null && requesterId.equals(targetUserId)) {
+            reviews = reviewRepository.findByUser_UserId(targetUserId);
+        } else {
+            reviews = reviewRepository.findByUser_UserIdAndVisibilityTrue(targetUserId);
+        }
+        return reviews.stream().map(this::toResponse).toList();
+    }
+
     // ---------------- COUNT ----------------
 
     @Override

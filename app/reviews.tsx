@@ -310,7 +310,7 @@ export default function ReviewsScreen() {
                   <Text style={{ fontWeight: "700" }}>
                     ⭐ {toNumber(r.rating).toFixed(1)} •{" "}
                     {token && !isMine ? (
-                      <Pressable onPress={() => router.push({ pathname: '/user/[id]', params: { id: String(r.userId) } } as any)}>
+                      <Pressable onPress={() => router.push({ pathname: '/user/[username]', params: { username: r.username } } as any)}>
                         <Text style={{ fontWeight: "700", textDecorationLine: "underline" }}>
                           {r.username || "User"}
                         </Text>

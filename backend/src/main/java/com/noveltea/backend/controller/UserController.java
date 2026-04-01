@@ -27,6 +27,16 @@ public class UserController extends BaseController {
         return ResponseEntity.ok(userService.searchUsers(username));
     }
 
+    // GET /users/username/{username} — look up public profile by username
+    @GetMapping("/username/{username}")
+    public ResponseEntity<UserDto.PublicResponse> getUserByUsername(
+            @PathVariable String username,
+            HttpServletRequest httpRequest
+    ) {
+        Long requestingUserId = getUserId(httpRequest);
+        return ResponseEntity.ok(userService.getUserByUsername(requestingUserId, username));
+    }
+
     // GET /users/{id} — public profile view, privacy-aware, no email returned
     @GetMapping("/{id}")
     public ResponseEntity<UserDto.PublicResponse> getPublicUser(

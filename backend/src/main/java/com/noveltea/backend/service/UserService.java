@@ -81,6 +81,13 @@ public class UserService {
         return toResponse(userRepository.save(user));
     }
 
+    // GET /users/username/{username} — look up public profile by username
+    public UserDto.PublicResponse getUserByUsername(Long requestingUserId, String username) {
+        User target = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
+        return getPublicProfile(requestingUserId, target.getUserId());
+    }
+
     // GET /users/search?username= — public users only, startsWith sorted first
     public List<UserDto.PublicResponse> searchUsers(String query) {
         String lower = query.toLowerCase();

@@ -17,4 +17,7 @@ public interface ReviewService {
     void delete(Long userId, Long reviewId);
 
     long countByUserId(Long userId);
+
+    // Own profile: returns all reviews; other users / guests: public only
+    List<ReviewDto.Response> getByUserId(Long requesterId, Long targetUserId);
 }

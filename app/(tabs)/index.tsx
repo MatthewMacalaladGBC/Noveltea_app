@@ -89,23 +89,19 @@ export default function HomeScreen() {
       'fantasy'
     ];
     
-    // Fetch 3 books from each genre (30 total)
     const fetchPromises = genres.map(genre =>
       fetch(`https://openlibrary.org/subjects/${genre}.json?limit=3`)
-        .then(res => res.json())
-        .then(data => data.works)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => data?.works ?? [])
+        .catch(() => [])
     );
-    
+
     Promise.all(fetchPromises)
       .then(results => {
-        const allBooks = results.flat();
-        setBooks(allBooks);
+        setBooks(results.flat());
         setLoading(false);
       })
-      .catch(error => {
-        console.error('Error fetching books:', error);
-        setLoading(false);
-      });
+      .catch(() => setLoading(false));
   }, []);
 
   // Category data with API genre mapping

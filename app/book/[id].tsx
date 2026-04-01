@@ -1,4 +1,5 @@
 import { BookList, listsApi } from '@/src/api/client';
+import { createReview, getReviewsByBook, updateReview } from '@/src/lib/reviews';
 import { useAuth } from '@/src/context/AuthContext';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -76,13 +77,15 @@ const Tag = ({ emoji, label, theme }: TagProps) => (
 export default function BookDetailsScreen() {
   const theme = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
 
   const [book, setBook] = useState<BookDetails | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [authors, setAuthors] = useState('Unknown Author');
   const [userRating, setUserRating] = useState(0);
+  const [existingReviewId, setExistingReviewId] = useState<number | null>(null);
+  const [ratingLoading, setRatingLoading] = useState(false);
 
   // ── Library status ────────────────────────────────────────────────────────
   const [libraryListId, setLibraryListId] = useState<number | null>(null);
@@ -102,17 +105,19 @@ export default function BookDetailsScreen() {
     }
   }, [id]);
 
-  // Check library status and load user's custom lists
+  // Check library status, load user's custom lists, and load existing rating
   useEffect(() => {
-    if (!token || !id) return;
+    if (!token || !id || !user) return;
 
     async function checkStatus() {
       try {
-        const allLists = await listsApi.getMyLists(token!);
-        const libraryList = allLists.find(l => l.title === 'Library');
-        const otherLists  = allLists.filter(l => l.title !== 'Library');
+        const [allLists, reviews] = await Promise.all([
+          listsApi.getMyLists(token!),
+          getReviewsByBook(id!, token!),
+        ]);
 
-        setUserLists(otherLists);
+        const libraryList = allLists.find(l => l.title === 'Library');
+        setUserLists(allLists.filter(l => l.title !== 'Library'));
 
         if (libraryList) {
           setLibraryListId(libraryList.listId);
@@ -121,13 +126,19 @@ export default function BookDetailsScreen() {
           const existing = items.find(item => item.bookId === bookKey);
           if (existing) setLibraryItemId(existing.listItemId);
         }
+
+        const myReview = reviews.find(r => r.userId === user!.userId);
+        if (myReview) {
+          setExistingReviewId(myReview.reviewId);
+          setUserRating(Number(myReview.rating));
+        }
       } catch {
         // Fail silently — buttons still render, just without pre-set state
       }
     }
 
     checkStatus();
-  }, [token, id]);
+  }, [token, id, user]);
 
   const fetchBookDetails = async (bookId: string) => {
     setLoading(true);
@@ -222,9 +233,33 @@ export default function BookDetailsScreen() {
     }
   };
 
-  const handleRating = (rating: number) => {
+  const handleRating = async (rating: number) => {
+    if (!token || !user || !book) return;
     setUserRating(rating);
-    // TODO: Persist to backend
+    setRatingLoading(true);
+    const isUpdate = existingReviewId !== null;
+    try {
+      if (isUpdate) {
+        await updateReview(existingReviewId!, { rating }, token);
+      } else {
+        const result = await createReview(
+          {
+            bookId: id!,
+            title: book.title,
+            author: authors,
+            coverImageUrl: getCoverUrl(book.covers, 'M'),
+            rating,
+          },
+          token,
+        );
+        setExistingReviewId(result.reviewId);
+      }
+      setSnackMessage(isUpdate ? 'Rating updated!' : 'Rating saved!');
+    } catch (e: any) {
+      setSnackMessage(e?.message || 'Failed to save rating');
+    } finally {
+      setRatingLoading(false);
+    }
   };
 
   const getTagEmoji = (subject: string): string => {
@@ -447,13 +482,20 @@ export default function BookDetailsScreen() {
 
             {/* INTERACTIVE STAR RATING */}
             <View style={[styles.ratingInputContainer, { backgroundColor: theme.colors.surface }]}>
-              <StarRating
-                value={userRating}
-                onChange={handleRating}
-                interactive={true}
-                size={24}
-                theme={theme}
-              />
+              <Text variant="labelSmall" style={{ color: theme.colors.onSurface, marginBottom: 6, opacity: 0.6 }}>
+                {userRating > 0 ? 'Your Rating' : 'Rate this book'}
+              </Text>
+              {ratingLoading ? (
+                <ActivityIndicator size="small" color={theme.colors.primary} />
+              ) : (
+                <StarRating
+                  value={userRating}
+                  onChange={handleRating}
+                  interactive={!!token}
+                  size={24}
+                  theme={theme}
+                />
+              )}
             </View>
           </View>
 

@@ -87,7 +87,7 @@ export default function FollowsScreen() {
   const renderUserRow = ({ item }: { item: PublicUserProfile }) => (
     <Pressable
       style={styles.userRow}
-      onPress={() => router.push({ pathname: '/user/[id]', params: { id: String(item.userId) } } as any)}
+      onPress={() => router.push({ pathname: '/user/[username]', params: { username: item.username } } as any)}
     >
       <Avatar.Text
         size={44}

@@ -191,9 +191,13 @@ export const listsApi = {
 // ---------------------------------------------------------------------------
 
 export const usersApi = {
-  // Returns public profile for any user (no email field)
+  // Returns public profile for any user by numeric ID (no email field)
   getPublicProfile: (userId: number, token: string) =>
     request<PublicUserProfile>(`/users/${userId}`, { token }),
+
+  // Returns public profile by username — used for username-based routing
+  getPublicProfileByUsername: (username: string, token: string) =>
+    request<PublicUserProfile>(`/users/username/${encodeURIComponent(username)}`, { token }),
 
   // Searches public users by username — startsWith results sorted first
   search: (query: string, token: string) =>
@@ -231,8 +235,27 @@ export const followersApi = {
 // Review endpoints
 // ---------------------------------------------------------------------------
 
+export interface ReviewResponse {
+  reviewId: number;
+  userId: number;
+  username: string;
+  bookId: string;
+  bookTitle: string;
+  bookAuthor: string;
+  coverImageUrl: string | null;
+  rating: string | number; // BigDecimal may arrive as string
+  reviewText: string | null;
+  likes: number;
+  visibility: boolean;
+  creationDate: string; // "YYYY-MM-DD"
+}
+
 export const reviewsApi = {
   // Returns the total number of reviews written by the authenticated user
   getMyCount: (token: string) =>
     request<number>('/reviews/me/count', { token }),
+
+  // Returns reviews by a user — public only for others, all for own profile
+  getUserReviews: (userId: number, token: string) =>
+    request<ReviewResponse[]>(`/reviews/user/${userId}`, { token }),
 };
