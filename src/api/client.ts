@@ -194,6 +194,10 @@ export const usersApi = {
   // Returns public profile for any user (no email field)
   getPublicProfile: (userId: number, token: string) =>
     request<PublicUserProfile>(`/users/${userId}`, { token }),
+
+  // Searches public users by username — startsWith results sorted first
+  search: (query: string, token: string) =>
+    request<PublicUserProfile[]>(`/users/search?username=${encodeURIComponent(query)}`, { token }),
 };
 
 // ---------------------------------------------------------------------------

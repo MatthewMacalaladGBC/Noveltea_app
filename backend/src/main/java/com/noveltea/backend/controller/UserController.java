@@ -7,6 +7,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/users")
 public class UserController extends BaseController {
@@ -15,6 +17,14 @@ public class UserController extends BaseController {
 
     public UserController(UserService userService) {
         this.userService = userService;
+    }
+
+    // GET /users/search?username= — must be declared before /{id} to avoid path conflict
+    @GetMapping("/search")
+    public ResponseEntity<List<UserDto.PublicResponse>> searchUsers(
+            @RequestParam String username
+    ) {
+        return ResponseEntity.ok(userService.searchUsers(username));
     }
 
     // GET /users/{id} — public profile view, privacy-aware, no email returned

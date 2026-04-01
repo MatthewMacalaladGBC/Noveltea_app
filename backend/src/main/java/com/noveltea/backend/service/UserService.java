@@ -9,6 +9,9 @@ import com.noveltea.backend.repository.UserRepository;
 
 import org.springframework.stereotype.Service;
 
+import java.util.Comparator;
+import java.util.List;
+
 @Service
 public class UserService {
 
@@ -76,6 +79,16 @@ public class UserService {
         if (dto.getPrivacy() != null) user.setPrivacy(dto.getPrivacy());
 
         return toResponse(userRepository.save(user));
+    }
+
+    // GET /users/search?username= — public users only, startsWith sorted first
+    public List<UserDto.PublicResponse> searchUsers(String query) {
+        String lower = query.toLowerCase();
+        return userRepository.findByUsernameContainingIgnoreCase(query).stream()
+                .filter(u -> !u.getPrivacy())
+                .sorted(Comparator.comparingInt(u -> u.getUsername().toLowerCase().startsWith(lower) ? 0 : 1))
+                .map(this::toPublicResponse)
+                .toList();
     }
 
     // DELETE /users/{id} — user themselves or an admin can delete an account
