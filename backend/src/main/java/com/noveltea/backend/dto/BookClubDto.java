@@ -50,6 +50,8 @@ public class BookClubDto {
         private String description;
         private Boolean privacy;
         private LocalDate creationDate;
+        private Long memberCount;
+        private String ownerUsername;
 
     }
 

@@ -1,8 +1,8 @@
-import { followersApi, listsApi, usersApi, PublicUserProfile, BookList } from '@/src/api/client';
+import { followersApi, listsApi, reviewsApi, usersApi, PublicUserProfile, BookList } from '@/src/api/client';
 import { useAuth } from '@/src/context/AuthContext';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Appbar, Avatar, Button, Divider, Text, useTheme } from 'react-native-paper';
 
 export default function UserProfileScreen() {
@@ -15,6 +15,7 @@ export default function UserProfileScreen() {
   const [followingCount, setFollowingCount] = useState(0);
   const [following, setFollowing] = useState(false);
   const [lists, setLists] = useState<BookList[]>([]);
+  const [reviewCount, setReviewCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,15 +39,17 @@ export default function UserProfileScreen() {
 
         const ownProfile = me?.userId === profileData.userId;
 
-        const [followers, following] = await Promise.all([
+        const [followers, following, userReviews] = await Promise.all([
           followersApi.getFollowerCount(profileData.userId, token!),
           followersApi.getFollowingCount(profileData.userId, token!),
+          reviewsApi.getUserReviews(profileData.userId, token!),
         ]);
         if (cancelled) return;
 
         setProfile(profileData);
         setFollowerCount(followers);
         setFollowingCount(following);
+        setReviewCount(userReviews.length);
 
         if (!ownProfile) {
           const [followStatus, publicLists] = await Promise.all([
@@ -163,6 +166,19 @@ export default function UserProfileScreen() {
               Following
             </Text>
           </View>
+          {!profile.privacy ? (
+            <Pressable
+              style={styles.statItem}
+              onPress={() => router.push({ pathname: '/user-reviews/[username]', params: { username: profile.username } } as any)}
+            >
+              <Text variant="headlineMedium" style={[styles.statNumber, { color: theme.colors.onBackground }]}>
+                {reviewCount}
+              </Text>
+              <Text variant="bodySmall" style={[styles.statLabel, { color: theme.colors.onSurface }]}>
+                Reviews
+              </Text>
+            </Pressable>
+          ) : null}
         </View>
 
         {/* Follow / Unfollow — only for other users when logged in */}
@@ -202,7 +218,11 @@ export default function UserProfileScreen() {
               </Text>
             ) : (
               publicLists.map(list => (
-                <View key={list.listId} style={[styles.listItem, { backgroundColor: theme.colors.surface }]}>
+                <Pressable
+                  key={list.listId}
+                  style={({ pressed }) => [styles.listItem, { backgroundColor: theme.colors.surface, opacity: pressed ? 0.7 : 1 }]}
+                  onPress={() => router.push({ pathname: '/list/[id]', params: { id: String(list.listId) } } as any)}
+                >
                   <Text variant="titleMedium" style={{ color: theme.colors.onSurface }}>
                     {list.title}
                   </Text>
@@ -214,7 +234,7 @@ export default function UserProfileScreen() {
                   <Text variant="bodySmall" style={{ color: theme.colors.onSurface, opacity: 0.5, marginTop: 4 }}>
                     {list.bookCount ?? 0} {(list.bookCount ?? 0) === 1 ? 'book' : 'books'}
                   </Text>
-                </View>
+                </Pressable>
               ))
             )}
           </View>

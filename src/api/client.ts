@@ -250,6 +250,140 @@ export interface ReviewResponse {
   creationDate: string; // "YYYY-MM-DD"
 }
 
+// ---------------------------------------------------------------------------
+// Book Club types
+// ---------------------------------------------------------------------------
+
+export interface BookClubResponse {
+  bookClubId: number;
+  name: string;
+  description: string | null;
+  privacy: boolean;
+  creationDate: string; // "YYYY-MM-DD"
+  memberCount: number;
+  ownerUsername: string | null;
+}
+
+export interface BookClubMemberResponse {
+  clubMemberId: number;
+  bookClubId: number;
+  clubName: string;
+  userId: number;
+  username: string;
+  role: 'OWNER' | 'MODERATOR' | 'MEMBER';
+  joinedDate: string;
+}
+
+export interface BookClubItemResponse {
+  clubItemId: number;
+  bookClubId: number;
+  bookId: string;
+  bookTitle: string;
+  bookAuthor: string;
+  coverImageUrl: string | null;
+  status: 'ACTIVE' | 'UPCOMING' | 'COMPLETED';
+  startDate: string | null;
+  endDate: string | null;
+  addedDate: string;
+}
+
+// ---------------------------------------------------------------------------
+// Book Club endpoints
+// ---------------------------------------------------------------------------
+
+export const clubsApi = {
+  getPublicClubs: (token: string) =>
+    request<BookClubResponse[]>('/clubs', { token }),
+
+  searchPublicClubs: (name: string, token: string) =>
+    request<BookClubResponse[]>(`/clubs/search?name=${encodeURIComponent(name)}`, { token }),
+
+  getMyClubs: (token: string) =>
+    request<BookClubResponse[]>('/clubs/me', { token }),
+
+  getClubById: (clubId: number, token: string) =>
+    request<BookClubResponse>(`/clubs/${clubId}`, { token }),
+
+  createClub: (name: string, description: string | null, privacy: boolean, token: string) =>
+    request<BookClubResponse>('/clubs', {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ name, description, privacy }),
+    }),
+
+  updateClub: (
+    clubId: number,
+    data: { name?: string; description?: string | null; privacy?: boolean },
+    token: string,
+  ) =>
+    request<BookClubResponse>(`/clubs/${clubId}`, {
+      method: 'PUT',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  deleteClub: (clubId: number, token: string) =>
+    request<void>(`/clubs/${clubId}`, { method: 'DELETE', token }),
+};
+
+export const clubMembersApi = {
+  getMyMemberships: (token: string) =>
+    request<BookClubMemberResponse[]>('/club-members/me', { token }),
+
+  getMembersByClub: (clubId: number, token: string) =>
+    request<BookClubMemberResponse[]>(`/club-members/club/${clubId}`, { token }),
+
+  joinClub: (bookClubId: number, token: string) =>
+    request<BookClubMemberResponse>('/club-members/join', {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ bookClubId }),
+    }),
+
+  leaveClub: (bookClubId: number, token: string) =>
+    request<void>(`/club-members/leave/${bookClubId}`, { method: 'DELETE', token }),
+};
+
+export const clubItemsApi = {
+  getItemsByClub: (clubId: number, token: string) =>
+    request<BookClubItemResponse[]>(`/club-items/club/${clubId}`, { token }),
+
+  getCurrentRead: (clubId: number, token: string) =>
+    request<BookClubItemResponse>(`/club-items/club/${clubId}/current`, { token }),
+
+  addBook: (
+    bookClubId: number,
+    bookId: string,
+    title: string,
+    author: string,
+    coverImageUrl: string | null,
+    token: string,
+  ) =>
+    request<BookClubItemResponse>('/club-items', {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ bookClubId, bookId, title, author, coverImageUrl }),
+    }),
+
+  updateItem: (
+    clubItemId: number,
+    data: { status?: 'ACTIVE' | 'UPCOMING' | 'COMPLETED'; startDate?: string; endDate?: string },
+    token: string,
+  ) =>
+    request<BookClubItemResponse>(`/club-items/${clubItemId}`, {
+      method: 'PATCH',
+      token,
+      body: JSON.stringify(data),
+    }),
+
+  removeBook: (clubItemId: number, token: string) =>
+    request<void>(`/club-items/${clubItemId}`, { method: 'DELETE', token }),
+};
+
+// ---------------------------------------------------------------------------
+// Review endpoints
+// ---------------------------------------------------------------------------
+
 export const reviewsApi = {
   // Returns the total number of reviews written by the authenticated user
   getMyCount: (token: string) =>

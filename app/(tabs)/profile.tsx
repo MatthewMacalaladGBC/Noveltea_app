@@ -303,7 +303,7 @@ export default function ProfileScreen() {
             title="Book Clubs"
             left={props => <List.Icon {...props} icon="account-group" />}
             right={props => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => console.log('Book clubs')}
+            onPress={() => router.push('/(tabs)/clubs' as any)}
           />
           <List.Item
             title={isDark ? 'Light Mode' : 'Dark Mode'}

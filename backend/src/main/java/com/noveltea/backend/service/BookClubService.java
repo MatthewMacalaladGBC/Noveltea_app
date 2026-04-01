@@ -2,6 +2,7 @@ package com.noveltea.backend.service;
 
 import com.noveltea.backend.dto.BookClubDto;
 import com.noveltea.backend.exception.ForbiddenException;
+import com.noveltea.backend.exception.InvalidRequestException;
 import com.noveltea.backend.exception.ResourceNotFoundException;
 import com.noveltea.backend.model.BookClub;
 import com.noveltea.backend.model.BookClubMember;
@@ -34,6 +35,11 @@ public class BookClubService {
     public BookClubDto.Response createClub(Long userId, BookClubDto.CreateRequest request) {
         User owner = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+
+        // Enforce one-owned-club-at-a-time rule
+        if (bookClubMemberRepository.existsByUser_UserIdAndRole(userId, BookClubMemberRole.OWNER)) {
+            throw new InvalidRequestException("You already own a book club. Delete it before creating a new one.");
+        }
 
         BookClub bookClub = BookClub.builder()
                 .name(request.getName())
@@ -159,15 +165,38 @@ public class BookClubService {
                 .toList();
     }
 
+    /**
+     * Returns all clubs the authenticated user belongs to (any role).
+     */
+    @Transactional(readOnly = true)
+    public List<BookClubDto.Response> getMyClubs(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+
+        return bookClubMemberRepository.findByUser(user).stream()
+                .map(member -> mapToResponse(member.getBookClub()))
+                .toList();
+    }
+
     // ----- DTO MAPPING -----
 
     private BookClubDto.Response mapToResponse(BookClub bookClub) {
+        long memberCount = bookClubMemberRepository.countByBookClub(bookClub);
+        String ownerUsername = bookClubMemberRepository
+                .findByBookClubAndRole(bookClub, BookClubMemberRole.OWNER)
+                .stream()
+                .findFirst()
+                .map(m -> m.getUser().getUsername())
+                .orElse(null);
+
         return BookClubDto.Response.builder()
                 .bookClubId(bookClub.getBookClubId())
                 .name(bookClub.getName())
                 .description(bookClub.getDescription())
                 .privacy(bookClub.getPrivacy())
                 .creationDate(bookClub.getCreationDate())
+                .memberCount(memberCount)
+                .ownerUsername(ownerUsername)
                 .build();
     }
 

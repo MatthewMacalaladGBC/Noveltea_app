@@ -307,8 +307,10 @@ export default function ReviewsScreen() {
                     gap: 8,
                   }}
                 >
-                  <Text style={{ fontWeight: "700" }}>
-                    ⭐ {toNumber(r.rating).toFixed(1)} •{" "}
+                  <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
+                    <Text style={{ fontWeight: "700" }}>
+                      ⭐ {toNumber(r.rating).toFixed(1)} •
+                    </Text>
                     {token && !isMine ? (
                       <Pressable onPress={() => router.push({ pathname: '/user/[username]', params: { username: r.username } } as any)}>
                         <Text style={{ fontWeight: "700", textDecorationLine: "underline" }}>
@@ -316,9 +318,11 @@ export default function ReviewsScreen() {
                         </Text>
                       </Pressable>
                     ) : (
-                      <>{r.username || "User"}{isMine ? " (you)" : ""}</>
+                      <Text style={{ fontWeight: "700" }}>
+                        {r.username || "User"}{isMine ? " (you)" : ""}
+                      </Text>
                     )}
-                  </Text>
+                  </View>
 
                   {!isEditing ? (
                     <>

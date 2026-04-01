@@ -31,4 +31,7 @@ public interface BookClubMemberRepository extends JpaRepository<BookClubMember, 
     // Total member count for a club
     long countByBookClub(BookClub bookClub);
 
+    // Check if a user already owns any club (enforces one-owned-club limit)
+    boolean existsByUser_UserIdAndRole(Long userId, BookClubMemberRole role);
+
 }

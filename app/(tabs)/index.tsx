@@ -14,57 +14,6 @@ interface Book {
   cover_id?: number;
 }
 
-// Mock book clubs data
-const bookClubs = [
-  {
-    id: '1',
-    name: 'Mystery Lovers',
-    members: 1234,
-    genre: 'Mystery',
-    emoji: '🔍',
-    color: '#FFE5B4',
-  },
-  {
-    id: '2',
-    name: 'Sci-Fi Explorers',
-    members: 2456,
-    genre: 'Science Fiction',
-    emoji: '🚀',
-    color: '#E0F4FF',
-  },
-  {
-    id: '3',
-    name: 'Romance Readers',
-    members: 3421,
-    genre: 'Romance',
-    emoji: '💕',
-    color: '#FFE5E5',
-  },
-  {
-    id: '4',
-    name: 'Fantasy Realm',
-    members: 2891,
-    genre: 'Fantasy',
-    emoji: '🧙',
-    color: '#F0E5FF',
-  },
-  {
-    id: '5',
-    name: 'Classic Literature',
-    members: 1876,
-    genre: 'Classics',
-    emoji: '📚',
-    color: '#E5F5E5',
-  },
-  {
-    id: '6',
-    name: 'Thriller Seekers',
-    members: 1654,
-    genre: 'Thriller',
-    emoji: '🔪',
-    color: '#FFE5E0',
-  },
-];
 
 export default function HomeScreen() {
   const theme = useTheme();
@@ -248,42 +197,28 @@ export default function HomeScreen() {
         />
       </View>
 
-      {/* Trending Book Clubs Section */}
+      {/* Book Clubs promo */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text variant="headlineSmall" style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
-            Trending Book Clubs
+            Book Clubs
           </Text>
-          <Text style={[styles.seeAll, { color: theme.colors.onBackground }]}>›</Text>
         </View>
-        <FlatList
-          horizontal
-          data={bookClubs}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity 
-              style={styles.bookClubCard}
-              onPress={() => console.log('Book club pressed:', item.name)}
-            >
-              <View style={[styles.bookClubImage, { backgroundColor: item.color }]}>
-                <Text style={styles.bookClubEmoji}>{item.emoji}</Text>
-              </View>
-              <View style={styles.bookClubInfo}>
-                <Text style={[styles.bookClubName, { color: theme.colors.onBackground }]} numberOfLines={1}>
-                  {item.name}
-                </Text>
-                <Text style={[styles.bookClubMembers, { color: theme.colors.onSurface }]}>
-                  {item.members} members
-                </Text>
-                <Text style={[styles.bookClubGenre, { color: theme.colors.onSurface }]}>
-                  {item.genre}
-                </Text>
-              </View>
-            </TouchableOpacity>
-          )}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.horizontalList}
-        />
+        <TouchableOpacity
+          style={[styles.clubsPromo, { backgroundColor: theme.colors.surface }]}
+          onPress={() => router.push('/(tabs)/clubs' as any)}
+        >
+          <Text style={[styles.clubsPromoEmoji]}>📚</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.clubsPromoTitle, { color: theme.colors.onSurface }]}>
+              Discover & Join Book Clubs
+            </Text>
+            <Text style={[styles.clubsPromoSub, { color: theme.colors.onSurface }]}>
+              Read together, discuss, and track progress as a group
+            </Text>
+          </View>
+          <Text style={{ color: theme.colors.onSurface, fontSize: 20 }}>›</Text>
+        </TouchableOpacity>
       </View>
     </ScrollView>
   );
@@ -368,34 +303,23 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
-  bookClubCard: {
-    width: 160,
-    marginRight: 16,
-    backgroundColor: 'transparent',
-  },
-  bookClubImage: {
-    width: 160,
-    height: 100,
-    borderRadius: 12,
-    justifyContent: 'center',
+  clubsPromo: {
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    borderRadius: 14,
+    padding: 16,
+    gap: 14,
+    marginHorizontal: 16,
   },
-  bookClubEmoji: {
-    fontSize: 48,
+  clubsPromoEmoji: {
+    fontSize: 36,
   },
-  bookClubInfo: {
-    gap: 4,
+  clubsPromoTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 2,
   },
-  bookClubName: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  bookClubMembers: {
-    fontSize: 13,
-    opacity: 0.7,
-  },
-  bookClubGenre: {
+  clubsPromoSub: {
     fontSize: 12,
     opacity: 0.6,
   },
