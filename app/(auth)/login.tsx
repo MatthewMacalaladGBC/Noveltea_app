@@ -1,7 +1,37 @@
-import { View, Text, StyleSheet, TextInput, Pressable } from "react-native";
+import { authApi } from "@/src/api/client";
 import { router } from "expo-router";
+import * as SecureStore from "expo-secure-store";
+import { useState } from "react";
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
 export default function LoginScreen() {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleLogin() {
+    if (!email || !password) {
+      Alert.alert("Missing fields", "Please enter your email and password.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const data = await authApi.login(email.trim().toLowerCase(), password);
+
+      // Store token and basic user info for use across the app
+      await SecureStore.setItemAsync("token", data.accessToken);
+      await SecureStore.setItemAsync("userId", String(data.user.userId));
+      await SecureStore.setItemAsync("username", data.user.username);
+
+      router.replace("/(tabs)");
+    } catch (error: any) {
+      Alert.alert("Login failed", error.message || "Invalid email or password.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <View style={styles.container}>
       <Text style={styles.brand}>NovelTea</Text>
@@ -10,19 +40,30 @@ export default function LoginScreen() {
       <Text style={styles.label}>Email:</Text>
       <TextInput
         style={styles.input}
+        value={email}
+        onChangeText={setEmail}
         keyboardType="email-address"
         autoCapitalize="none"
       />
 
       <Text style={styles.label}>Password:</Text>
-      <TextInput style={styles.input} secureTextEntry />
+      <TextInput
+        style={styles.input}
+        value={password}
+        onChangeText={setPassword}
+        secureTextEntry
+      />
 
-      <Pressable onPress={() => alert("Forgot password coming soon")}>
+      <Pressable onPress={() => Alert.alert("Coming soon", "Forgot password coming soon.")}>
         <Text style={styles.forgot}>Forgot password?</Text>
       </Pressable>
 
-      <Pressable style={styles.primaryBtn} onPress={() => router.replace("/(tabs)")}>
-        <Text style={styles.primaryBtnText}>Login</Text>
+      <Pressable
+        style={[styles.primaryBtn, loading && styles.primaryBtnDisabled]}
+        onPress={handleLogin}
+        disabled={loading}
+      >
+        <Text style={styles.primaryBtnText}>{loading ? "Logging in..." : "Login"}</Text>
       </Pressable>
 
       <Pressable onPress={() => router.back()}>
@@ -56,6 +97,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: "center",
   },
+  primaryBtnDisabled: { backgroundColor: "#555" },
   primaryBtnText: { color: "#fff", fontWeight: "700" },
 
   backLink: { marginTop: 18, textAlign: "center", color: "#555", textDecorationLine: "underline" },

@@ -23,6 +23,7 @@ export interface UserProfile {
   privacy: boolean;
   role: string;
   joinDate: string; // "YYYY-MM-DD"
+  dateOfBirth: string; // "YYYY-MM-DD"
 }
 
 // Mirrors UserDto.PublicResponse (other users — no email)
@@ -114,10 +115,10 @@ export const authApi = {
       body: JSON.stringify({ email, password }),
     }),
 
-  register: (username: string, email: string, password: string) =>
+  register: (username: string, email: string, password: string, dateOfBirth: string) =>
     request<AuthResponse>('/auth/register', {
       method: 'POST',
-      body: JSON.stringify({ username, email, password }),
+      body: JSON.stringify({ username, email, password, dateOfBirth }),
     }),
 
   // Fetches the full profile for the currently authenticated user

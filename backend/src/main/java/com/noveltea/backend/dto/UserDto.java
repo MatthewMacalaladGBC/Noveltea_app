@@ -1,10 +1,13 @@
 package com.noveltea.backend.dto;
 
+import java.time.LocalDate;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import lombok.*;
-
-import java.time.LocalDate;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 public class UserDto {
 
@@ -70,6 +73,7 @@ public class UserDto {
         private Boolean privacy;
         private String role;
         private LocalDate joinDate;
+        private LocalDate dateOfBirth;
 
     }
 

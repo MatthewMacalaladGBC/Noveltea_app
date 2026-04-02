@@ -1,5 +1,8 @@
 package com.noveltea.backend.service;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
 import com.noveltea.backend.dto.AuthResponse;
 import com.noveltea.backend.dto.LoginRequest;
 import com.noveltea.backend.dto.RegisterRequest;
@@ -7,8 +10,6 @@ import com.noveltea.backend.model.BookList;
 import com.noveltea.backend.model.User;
 import com.noveltea.backend.repository.BookListRepository;
 import com.noveltea.backend.repository.UserRepository;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
 
 @Service
 public class AuthServiceImpl implements AuthService {
@@ -47,6 +48,7 @@ public class AuthServiceImpl implements AuthService {
                 .username(username)
                 .hashedPassword(hashed)
                 .role("standard") // ✅ default role
+                .dateOfBirth(request.getParsedDateOfBirth())
                 .build();
 
         User saved = userRepository.save(user);

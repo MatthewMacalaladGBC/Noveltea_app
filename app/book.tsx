@@ -1,5 +1,5 @@
-import { View, Text } from "react-native";
 import { useLocalSearchParams } from "expo-router";
+import { Text, View } from "react-native";
 
 export default function BookScreen() {
   const { id } = useLocalSearchParams();

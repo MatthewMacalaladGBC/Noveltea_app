@@ -2,8 +2,16 @@ package com.noveltea.backend.model;
 
 import java.time.LocalDate;
 
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "users")
@@ -31,6 +39,10 @@ public class User {
     // Can be null (users may choose not to write a bio)
     @Column(columnDefinition = "TEXT")
     private String bio;
+
+    //Date of birth
+    @Column(nullable = false)
+    private LocalDate dateOfBirth;
 
     // Sets privacy to default to public (false)
     @Builder.Default

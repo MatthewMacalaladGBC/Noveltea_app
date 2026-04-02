@@ -1,16 +1,16 @@
 package com.noveltea.backend.service;
 
+import java.util.Comparator;
+import java.util.List;
+
+import org.springframework.stereotype.Service;
+
 import com.noveltea.backend.dto.UserDto;
 import com.noveltea.backend.exception.ForbiddenException;
 import com.noveltea.backend.exception.ResourceNotFoundException;
 import com.noveltea.backend.model.User;
 import com.noveltea.backend.repository.FollowerRepository;
 import com.noveltea.backend.repository.UserRepository;
-
-import org.springframework.stereotype.Service;
-
-import java.util.Comparator;
-import java.util.List;
 
 @Service
 public class UserService {
@@ -126,6 +126,7 @@ public class UserService {
                 .privacy(user.getPrivacy())
                 .role(user.getRole() == null ? null : user.getRole().toString())
                 .joinDate(user.getJoinDate())
+                .dateOfBirth(user.getDateOfBirth())
                 .build();
     }
 

@@ -1,8 +1,8 @@
 import { BookList, listsApi } from '@/src/api/client';
-import { createReview, getReviewsByBook, updateReview } from '@/src/lib/reviews';
 import { useAuth } from '@/src/context/AuthContext';
+import { createReview, getReviewsByBook, updateReview } from '@/src/lib/reviews';
 import { router, Stack, useLocalSearchParams } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ActivityIndicator, Image, Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Appbar, Button, Chip, Portal, Snackbar, Text, useTheme } from 'react-native-paper';
 
@@ -20,7 +20,7 @@ interface BookDetails {
   isbn_13?: string[];
   ratings_average?: number;
   ratings_count?: number;
-}-0  
+}
 
 // ===== STAR RATING COMPONENT =====
 interface StarRatingProps {
@@ -86,6 +86,7 @@ export default function BookDetailsScreen() {
   const [userRating, setUserRating] = useState(0);
   const [existingReviewId, setExistingReviewId] = useState<number | null>(null);
   const [ratingLoading, setRatingLoading] = useState(false);
+  const [isBlocked, setIsBlocked] = useState(false);
 
   // ── Library status ────────────────────────────────────────────────────────
   const [libraryListId, setLibraryListId] = useState<number | null>(null);
@@ -140,6 +141,30 @@ export default function BookDetailsScreen() {
     checkStatus();
   }, [token, id, user]);
 
+  // ── Helpers ───────────────────────────────────────────────────────────────
+
+  function calculateAge(dob: string): number {
+    const birth = new Date(dob);
+    const today = new Date();
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
+  }
+
+  async function checkMaturity(isbn: string): Promise<boolean> {
+    try {
+      const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+      const data = await res.json();
+      if (data.totalItems > 0) {
+        return data.items[0].volumeInfo.maturityRating === 'MATURE';
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }
+
   const fetchBookDetails = async (bookId: string) => {
     setLoading(true);
     setError(null);
@@ -156,6 +181,20 @@ export default function BookDetailsScreen() {
       if (data.error) {
         throw new Error('Book not found');
       }
+
+      // ── Maturity check ───────────────────────────────────────────────────
+      if (user?.dateOfBirth && data.isbn_13?.[0]) {
+        const age = calculateAge(user.dateOfBirth);
+        if (age < 18) {
+          const mature = await checkMaturity(data.isbn_13[0]);
+          if (mature) {
+            setIsBlocked(true);
+            setLoading(false);
+            return;
+          }
+        }
+      }
+      // ────────────────────────────────────────────────────────────────────
 
       setBook(data);
 
@@ -277,7 +316,7 @@ export default function BookDetailsScreen() {
     return '📖';
   };
 
-  // ── States ────────────────────────────────────────────────────────────────
+  // ── Render states ─────────────────────────────────────────────────────────
 
   if (loading) {
     return (
@@ -291,6 +330,28 @@ export default function BookDetailsScreen() {
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={theme.colors.primary} />
             <Text style={[styles.loadingText, { color: theme.colors.onSurface }]}>Loading book details...</Text>
+          </View>
+        </View>
+      </>
+    );
+  }
+
+  if (isBlocked) {
+    return (
+      <>
+        <Stack.Screen options={{ headerShown: false }} />
+        <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+          <Appbar.Header style={{ backgroundColor: theme.colors.background, elevation: 0 }}>
+            <Appbar.BackAction onPress={() => router.back()} />
+          </Appbar.Header>
+          <View style={styles.blockedContainer}>
+            <Text style={styles.blockedEmoji}>📚</Text>
+            <Text variant="headlineSmall" style={[styles.blockedTitle, { color: theme.colors.onBackground }]}>
+              Sorry, maybe when you're a bit older
+            </Text>
+            <Text variant="bodyMedium" style={[styles.blockedSubtitle, { color: theme.colors.onSurface }]}>
+              This book contains mature content and is only available to users aged 18 and over.
+            </Text>
           </View>
         </View>
       </>
@@ -331,9 +392,7 @@ export default function BookDetailsScreen() {
         animationType="slide"
         onRequestClose={() => setListPickerVisible(false)}
       >
-        {/* Outer Pressable = backdrop dismiss */}
         <Pressable style={styles.pickerBackdrop} onPress={() => setListPickerVisible(false)}>
-          {/* Inner Pressable consumes touches so tapping the sheet doesn't dismiss */}
           <Pressable
             style={[styles.pickerSheet, { backgroundColor: theme.colors.surface }]}
             onPress={() => {}}
@@ -422,7 +481,6 @@ export default function BookDetailsScreen() {
           <View style={styles.actionsContainer}>
             {token ? (
               <>
-                {/* Button 1: Add to Library / Remove from Library */}
                 <Pressable
                   onPress={handleAddToLibrary}
                   disabled={libraryLoading}
@@ -440,7 +498,6 @@ export default function BookDetailsScreen() {
                   )}
                 </Pressable>
 
-                {/* Button 2: Add to List (opens picker) */}
                 <Pressable
                   onPress={() => setListPickerVisible(true)}
                   style={[styles.addToListButton, { borderColor: theme.colors.onBackground }]}
@@ -451,7 +508,6 @@ export default function BookDetailsScreen() {
                 </Pressable>
               </>
             ) : (
-              /* Guest: prompt to sign in */
               <Pressable
                 onPress={() => router.push('/auth/welcome')}
                 style={[styles.libraryButton, { backgroundColor: theme.colors.onBackground }]}
@@ -462,23 +518,21 @@ export default function BookDetailsScreen() {
 
             <Pressable
               onPress={() => {
-              const cleanId = (id || "").replace("/works/", "");
-              router.push({
-              pathname: "/reviews",
-              params: { bookId: cleanId, 
-                title: book.title,
-                author: authors,
-                coverImageURL: coverUrl || "",
-              },
-              });
+                const cleanId = (id || '').replace('/works/', '');
+                router.push({
+                  pathname: '/reviews',
+                  params: {
+                    bookId: cleanId,
+                    title: book.title,
+                    author: authors,
+                    coverImageURL: coverUrl || '',
+                  },
+                });
               }}
-              style={[
-                styles.libraryButton,
-                { backgroundColor: theme.colors.primary },
-              ]}
->
+              style={[styles.libraryButton, { backgroundColor: theme.colors.primary }]}
+            >
               <Text style={styles.libraryButtonText}>See Reviews</Text>
-              </Pressable>
+            </Pressable>
 
             {/* INTERACTIVE STAR RATING */}
             <View style={[styles.ratingInputContainer, { backgroundColor: theme.colors.surface }]}>
@@ -596,6 +650,26 @@ const styles = StyleSheet.create({
     marginTop: 16,
     textAlign: 'center',
   },
+  blockedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  blockedEmoji: {
+    fontSize: 56,
+    marginBottom: 20,
+  },
+  blockedTitle: {
+    fontWeight: '700',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  blockedSubtitle: {
+    textAlign: 'center',
+    opacity: 0.7,
+    lineHeight: 22,
+  },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -607,8 +681,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     opacity: 0.7,
   },
-
-  // === COVER SECTION ===
   coverSection: {
     alignItems: 'center',
     paddingVertical: 24,
@@ -636,8 +708,6 @@ const styles = StyleSheet.create({
     opacity: 0.6,
     fontSize: 14,
   },
-
-  // === TITLE SECTION ===
   titleSection: {
     paddingHorizontal: 20,
     paddingBottom: 16,
@@ -654,8 +724,6 @@ const styles = StyleSheet.create({
     opacity: 0.8,
     fontWeight: '600',
   },
-
-  // === TAGS SECTION ===
   tagsSection: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -682,8 +750,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-
-  // === ACTIONS SECTION ===
   actionsContainer: {
     paddingHorizontal: 20,
     paddingBottom: 20,
@@ -720,8 +786,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-
-  // === DETAILS SECTION ===
   detailsSection: {
     paddingHorizontal: 20,
     paddingBottom: 20,
@@ -746,8 +810,6 @@ const styles = StyleSheet.create({
   detailValue: {
     fontWeight: '500',
   },
-
-  // === SUBJECTS SECTION ===
   subjectsSection: {
     paddingHorizontal: 20,
     paddingBottom: 20,
@@ -760,8 +822,6 @@ const styles = StyleSheet.create({
   subjectChip: {
     marginBottom: 8,
   },
-
-  // === DESCRIPTION SECTION ===
   descriptionSection: {
     paddingHorizontal: 20,
     paddingBottom: 40,
@@ -770,8 +830,6 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     opacity: 0.9,
   },
-
-  // === LIST PICKER (bottom sheet) ===
   pickerBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',

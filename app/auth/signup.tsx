@@ -1,6 +1,6 @@
 import { useThemeContext } from '@/src/ThemeContext';
 import { router } from 'expo-router';
-import React, { useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Platform, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Appbar, Button, Text, TextInput, useTheme } from 'react-native-paper';
 
@@ -159,6 +159,9 @@ export default function SignupScreen() {
   const formatDate = (d: Date) =>
     d.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
+  const formatDateForApi = (d: Date): string =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
   const isFormValid = useMemo(() => {
     return (
       username.trim() !== '' &&
@@ -176,7 +179,6 @@ export default function SignupScreen() {
   };
 
   const handleSignup = async () => {
-    // extra guard (so we NEVER send blank username)
     const trimmedUsername = username.trim();
     console.log("username RIGHT BEFORE SEND =", trimmedUsername);
     if (!trimmedUsername) {
@@ -193,9 +195,9 @@ export default function SignupScreen() {
         username: trimmedUsername,
         email: email.trim(),
         password,
+        dateOfBirth: dateOfBirth ? formatDateForApi(dateOfBirth) : '',
       };
 
-      // debug logs
       console.log('➡️ REGISTER payload:', payload);
       console.log('➡️ REGISTER url:', `${API_URL}/auth/register`);
 
@@ -285,7 +287,7 @@ export default function SignupScreen() {
               </View>
             )}
 
-            {dateOfBirth && !showDatePicker && <Text style={styles.ageSuccess}>✓ Age verified — you’re good to go!</Text>}
+            {dateOfBirth && !showDatePicker && <Text style={styles.ageSuccess}>✓ Age verified — you're good to go!</Text>}
           </View>
 
           <View style={styles.inputGroup}>
