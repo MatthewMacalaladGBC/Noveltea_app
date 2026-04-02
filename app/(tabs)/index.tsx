@@ -3,15 +3,15 @@ import { useAuth } from '@/src/context/AuthContext';
 import { useThemeContext } from '@/src/ThemeContext';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { FlatList, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Button, IconButton, Searchbar, Text, useTheme } from 'react-native-paper';
 
-// Define the Book interface for type safety
+// Matches Open Library trending API response shape
 interface Book {
   key: string;
   title: string;
-  authors?: Array<{ name: string }>;
-  cover_id?: number;
+  author_name?: string[];
+  cover_i?: number;
 }
 
 
@@ -24,33 +24,23 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
-    // Fetch books from multiple genres
-    const genres = [
-      'romance',
-      'science_fiction',
-      'mystery',
-      'thriller',
-      'historical_fiction',
-      'children',
-      'nonfiction',
-      'young_adult',
-      'horror',
-      'fantasy'
-    ];
-    
-    const fetchPromises = genres.map(genre =>
-      fetch(`https://openlibrary.org/subjects/${genre}.json?limit=3`)
-        .then(res => res.ok ? res.json() : null)
-        .then(data => data?.works ?? [])
-        .catch(() => [])
-    );
-
-    Promise.all(fetchPromises)
-      .then(results => {
-        setBooks(results.flat());
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+    const FICTION_GENRES = ['fantasy', 'science_fiction', 'romance'];
+    Promise.all(
+      FICTION_GENRES.map(genre =>
+        fetch(`https://openlibrary.org/subjects/${genre}.json?sort=trending&limit=5`)
+          .then(res => res.ok ? res.json() : null)
+          .then(data => (data?.works ?? []).map((w: any) => ({
+            key: w.key,
+            title: w.title,
+            author_name: w.authors?.map((a: any) => a.name),
+            cover_i: w.cover_id,
+          })))
+          .catch(() => [])
+      )
+    )
+      .then(results => setBooks(results.flat()))
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
   // Category data with API genre mapping
@@ -72,14 +62,6 @@ export default function HomeScreen() {
     router.push(`/category/${apiGenre}` as any);
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-        <Text style={{ color: theme.colors.onBackground }}>Loading...</Text>
-      </View>
-    );
-  }
-  
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
       {/* Header Section with Theme Toggle */}
@@ -170,15 +152,18 @@ export default function HomeScreen() {
             <Text style={[styles.seeAll, { color: theme.colors.onBackground }]}>›</Text>
           </TouchableOpacity>
         </View>
+        {loading && (
+          <ActivityIndicator style={{ marginVertical: 16 }} color={theme.colors.primary} />
+        )}
         <FlatList
           horizontal
           data={books.slice(0, 15)}
           keyExtractor={(item, index) => `${item.key}-${index}`}
           renderItem={({ item }) => {
             const title = item?.title || 'Unknown Title';
-            const author = item?.authors?.[0]?.name || 'Unknown Author';
-            const coverUrl = item?.cover_id 
-              ? `https://covers.openlibrary.org/b/id/${item.cover_id}-M.jpg`
+            const author = item?.author_name?.[0] || 'Unknown Author';
+            const coverUrl = item?.cover_i
+              ? `https://covers.openlibrary.org/b/id/${item.cover_i}-M.jpg`
               : '';
             const bookId = item.key.replace('/works/', '');
             

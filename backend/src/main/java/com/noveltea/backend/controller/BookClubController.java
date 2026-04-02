@@ -79,4 +79,14 @@ public class BookClubController extends BaseController {
     public ResponseEntity<List<BookClubDto.Response>> searchPublicClubs(@RequestParam String name) {
         return ResponseEntity.ok(bookClubService.searchPublicClubs(name));
     }
+
+    // GET /clubs/search/all?name=... (authenticated) - search all clubs including private
+    @GetMapping("/search/all")
+    public ResponseEntity<List<BookClubDto.Response>> searchAllClubs(
+            @RequestParam String name,
+            HttpServletRequest httpRequest
+    ) {
+        getUserId(httpRequest); // validates auth token is present
+        return ResponseEntity.ok(bookClubService.searchAllClubs(name));
+    }
 }

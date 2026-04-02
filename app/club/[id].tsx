@@ -2,7 +2,9 @@ import {
   BookClubItemResponse,
   BookClubMemberResponse,
   BookClubResponse,
+  ClubJoinRequestResponse,
   clubItemsApi,
+  clubJoinRequestsApi,
   clubMembersApi,
   clubsApi,
 } from '@/src/api/client';
@@ -390,6 +392,8 @@ export default function ClubHubScreen() {
   const [members, setMembers] = useState<BookClubMemberResponse[]>([]);
   const [items, setItems] = useState<BookClubItemResponse[]>([]);
   const [myMembership, setMyMembership] = useState<BookClubMemberResponse | null>(null);
+  const [myJoinRequest, setMyJoinRequest] = useState<ClubJoinRequestResponse | null>(null);
+  const [pendingRequests, setPendingRequests] = useState<ClubJoinRequestResponse[]>([]);
 
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -419,19 +423,36 @@ export default function ClubHubScreen() {
     try {
       setLoading(true);
       setError(null);
-      const [clubData, membersData, myMemberships] = await Promise.all([
+
+      // Phase 1: always fetch club info + the user's own memberships
+      const [clubData, myMemberships] = await Promise.all([
         clubsApi.getClubById(clubId, token!),
-        clubMembersApi.getMembersByClub(clubId, token!),
         clubMembersApi.getMyMemberships(token!),
       ]);
       setClub(clubData);
-      setMembers(membersData);
       const mine = myMemberships.find(m => m.bookClubId === clubId) ?? null;
       setMyMembership(mine);
 
-      // Only load items if user is a member (or club is public — backend enforces)
-      const itemsData = await clubItemsApi.getItemsByClub(clubId, token!);
-      setItems(itemsData);
+      // Phase 2: member path vs non-member-of-private path
+      if (mine || !clubData.privacy) {
+        // Member, or public club anyone can browse
+        const [membersData, itemsData] = await Promise.all([
+          clubMembersApi.getMembersByClub(clubId, token!),
+          clubItemsApi.getItemsByClub(clubId, token!),
+        ]);
+        setMembers(membersData);
+        setItems(itemsData);
+
+        // Owner/mods also fetch pending join requests
+        if (mine?.role === 'OWNER' || mine?.role === 'MODERATOR') {
+          const requests = await clubJoinRequestsApi.getPendingRequests(clubId, token!).catch(() => []);
+          setPendingRequests(requests);
+        }
+      } else {
+        // Non-member viewing a private club — fetch their join request status if any
+        const myRequest = await clubJoinRequestsApi.getMyRequest(clubId, token!).catch(() => null);
+        setMyJoinRequest(myRequest);
+      }
     } catch (e: any) {
       setError(e?.message || 'Failed to load club');
     } finally {
@@ -455,6 +476,58 @@ export default function ClubHubScreen() {
       setSnackMessage(e?.message || 'Failed to join');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleRequestJoin = async () => {
+    if (!token) return;
+    setActionLoading(true);
+    try {
+      const req = await clubJoinRequestsApi.requestJoin(clubId, token);
+      setMyJoinRequest(req);
+      setSnackMessage('Join request sent!');
+    } catch (e: any) {
+      setSnackMessage(e?.message || 'Failed to send request');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleCancelRequest = async () => {
+    if (!token || !myJoinRequest) return;
+    setActionLoading(true);
+    try {
+      await clubJoinRequestsApi.cancelRequest(myJoinRequest.requestId, token);
+      setMyJoinRequest(null);
+      setSnackMessage('Join request cancelled.');
+    } catch (e: any) {
+      setSnackMessage(e?.message || 'Failed to cancel request');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleApproveRequest = async (req: ClubJoinRequestResponse) => {
+    if (!token) return;
+    try {
+      const newMember = await clubJoinRequestsApi.approveRequest(req.requestId, token);
+      setPendingRequests(prev => prev.filter(r => r.requestId !== req.requestId));
+      setMembers(prev => [...prev, newMember]);
+      setClub(prev => prev ? { ...prev, memberCount: (prev.memberCount ?? 0) + 1 } : prev);
+      setSnackMessage(`@${req.username} approved.`);
+    } catch (e: any) {
+      setSnackMessage(e?.message || 'Failed to approve');
+    }
+  };
+
+  const handleRejectRequest = async (req: ClubJoinRequestResponse) => {
+    if (!token) return;
+    try {
+      await clubJoinRequestsApi.rejectRequest(req.requestId, token);
+      setPendingRequests(prev => prev.filter(r => r.requestId !== req.requestId));
+      setSnackMessage(`@${req.username} rejected.`);
+    } catch (e: any) {
+      setSnackMessage(e?.message || 'Failed to reject');
     }
   };
 
@@ -534,7 +607,7 @@ export default function ClubHubScreen() {
 
   const handleUpdateRole = (member: BookClubMemberResponse, newRole: 'MODERATOR' | 'MEMBER') => {
     const label = newRole === 'MODERATOR' ? 'Promote to Moderator' : 'Demote to Member';
-    Alert.alert(label, `${label} @${member.username}?`, [
+    Alert.alert(label, `Promote member @${member.username} to Moderator?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Confirm', onPress: async () => {
@@ -664,9 +737,43 @@ export default function ClubHubScreen() {
           {/* Private & not a member */}
           {!isMember && club.privacy ? (
             <View style={styles.section}>
-              <Text style={{ color: theme.colors.onSurface, opacity: 0.6, textAlign: 'center' }}>
-                This is a private club. Contact the owner to request an invite.
-              </Text>
+              {myJoinRequest?.status === 'PENDING' ? (
+                <>
+                  <Text style={{ color: theme.colors.onSurface, opacity: 0.6, textAlign: 'center', marginBottom: 12 }}>
+                    Your join request is pending approval.
+                  </Text>
+                  <Button
+                    mode="outlined"
+                    onPress={handleCancelRequest}
+                    loading={actionLoading}
+                    disabled={actionLoading}
+                    textColor={theme.colors.error}
+                    style={{ borderColor: theme.colors.error }}
+                  >
+                    Cancel Request
+                  </Button>
+                </>
+              ) : myJoinRequest?.status === 'REJECTED' ? (
+                <Text style={{ color: theme.colors.onSurface, opacity: 0.6, textAlign: 'center' }}>
+                  Your previous join request was declined.
+                </Text>
+              ) : (
+                <>
+                  <Text style={{ color: theme.colors.onSurface, opacity: 0.6, textAlign: 'center', marginBottom: 12 }}>
+                    This is a private club.
+                  </Text>
+                  <Button
+                    mode="contained"
+                    onPress={handleRequestJoin}
+                    loading={actionLoading}
+                    disabled={actionLoading}
+                    buttonColor="#000"
+                    style={styles.joinButton}
+                  >
+                    Request to Join
+                  </Button>
+                </>
+              )}
             </View>
           ) : null}
 
@@ -743,6 +850,40 @@ export default function ClubHubScreen() {
               ) : null}
 
               <Divider style={{ marginVertical: 8 }} />
+
+              {/* Pending Join Requests — owner/mod only */}
+              {canManage && pendingRequests.length > 0 ? (
+                <>
+                  <View style={styles.section}>
+                    <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
+                      Join Requests ({pendingRequests.length})
+                    </Text>
+                    {pendingRequests.map(req => (
+                      <View key={req.requestId} style={styles.memberRow}>
+                        <Avatar.Text
+                          size={36}
+                          label={req.username.charAt(0).toUpperCase()}
+                          style={{ backgroundColor: theme.colors.surfaceVariant }}
+                        />
+                        <Text variant="bodyMedium" style={{ color: theme.colors.onBackground, flex: 1 }}>
+                          @{req.username}
+                        </Text>
+                        <Pressable onPress={() => handleApproveRequest(req)}>
+                          <Text style={{ fontSize: 12, color: theme.colors.primary, fontWeight: '700', marginRight: 12 }}>
+                            Accept
+                          </Text>
+                        </Pressable>
+                        <Pressable onPress={() => handleRejectRequest(req)}>
+                          <Text style={{ fontSize: 12, color: theme.colors.error, fontWeight: '700' }}>
+                            Deny
+                          </Text>
+                        </Pressable>
+                      </View>
+                    ))}
+                  </View>
+                  <Divider style={{ marginVertical: 8 }} />
+                </>
+              ) : null}
 
               {/* Members */}
               <View style={styles.section}>

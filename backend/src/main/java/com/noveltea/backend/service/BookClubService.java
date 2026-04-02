@@ -132,14 +132,8 @@ public class BookClubService {
         BookClub bookClub = bookClubRepository.findById(bookClubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Book Club not found: " + bookClubId));
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
-
-        // Private clubs are only visible to members
-        if (bookClub.getPrivacy() && !bookClubMemberRepository.existsByUserAndBookClub(user, bookClub)) {
-            throw new ForbiddenException("Only members can view a private club.");
-        }
-
+        // Private clubs return basic info to all authenticated users (so they can request to join via search).
+        // Content restriction (members list, items) is enforced at the respective endpoints.
         return mapToResponse(bookClub);
     }
 
@@ -161,6 +155,17 @@ public class BookClubService {
     @Transactional(readOnly = true)
     public List<BookClubDto.Response> searchPublicClubs(String name) {
         return bookClubRepository.findByPrivacyFalseAndNameContainingIgnoreCase(name).stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    /**
+     * Searches all clubs (public + private) by partial title match.
+     * Used for authenticated search so users can find and request to join private clubs.
+     */
+    @Transactional(readOnly = true)
+    public List<BookClubDto.Response> searchAllClubs(String name) {
+        return bookClubRepository.findByNameContainingIgnoreCase(name).stream()
                 .map(this::mapToResponse)
                 .toList();
     }

@@ -115,7 +115,7 @@ async function filterMatureBooks(books: SearchBook[], userAge: number): Promise<
   const results = await Promise.all(
     books.map(async (book) => {
       const isbn = book.isbn?.[0];
-      if (!isbn) return null;
+      if (!isbn) return book;
       const mature = await isMature(isbn);
       return mature ? null : book;
     })
@@ -136,8 +136,8 @@ export default function ExploreScreen() {
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Default to 0 so users without dateOfBirth are treated as under-18
-  const userAge = user?.dateOfBirth ? calculateAge(user.dateOfBirth) : 0;
+  // Default to 18 so users without dateOfBirth are not filtered
+  const userAge = user?.dateOfBirth ? calculateAge(user.dateOfBirth) : 18;
 
   useFocusEffect(
     useCallback(() => {
@@ -159,11 +159,23 @@ export default function ExploreScreen() {
   const fetchTrending = async () => {
     setLoading(true);
     try {
-      const res = await fetch(
-        'https://openlibrary.org/search.json?q=trending&sort=rating&limit=20&fields=key,title,author_name,first_publish_year,cover_i,isbn'
+      const FICTION_GENRES = ['fantasy', 'science_fiction', 'romance'];
+      const results = await Promise.all(
+        FICTION_GENRES.map(genre =>
+          fetch(`https://openlibrary.org/subjects/${genre}.json?sort=trending&limit=7`)
+            .then(res => res.ok ? res.json() : null)
+            .then(data => (data?.works ?? []).map((w: any) => ({
+              key: w.key,
+              title: w.title,
+              author_name: w.authors?.map((a: any) => a.name),
+              first_publish_year: w.first_publish_year,
+              cover_i: w.cover_id,
+              isbn: w.isbn,
+            })))
+            .catch(() => [])
+        )
       );
-      const data = res.ok ? await res.json().catch(() => null) : null;
-      const filtered = await filterMatureBooks(data?.docs ?? [], userAge);
+      const filtered = await filterMatureBooks(results.flat(), userAge);
       setResults(filtered);
     } catch {
       setResults([]);

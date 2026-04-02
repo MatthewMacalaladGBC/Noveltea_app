@@ -1,4 +1,5 @@
 import { BookClubResponse, clubMembersApi, clubsApi } from '@/src/api/client';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuth } from '@/src/context/AuthContext';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
@@ -33,6 +34,9 @@ function ClubCard({
       onPress={onPress}
     >
       <View style={styles.clubCardHeader}>
+        {club.privacy && (
+          <MaterialCommunityIcons name="lock" size={15} color={theme.colors.onSurface} style={{ opacity: 0.5, marginRight: 4 }} />
+        )}
         <Text variant="titleMedium" style={{ color: theme.colors.onSurface, fontWeight: '700', flex: 1 }} numberOfLines={1}>
           {club.name}
         </Text>
@@ -170,6 +174,7 @@ export default function ClubsScreen() {
   const { user, token } = useAuth();
 
   const [publicClubs, setPublicClubs] = useState<BookClubResponse[]>([]);
+  const [myClubs, setMyClubs] = useState<BookClubResponse[]>([]);
   const [myClubIds, setMyClubIds] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -191,13 +196,14 @@ export default function ClubsScreen() {
         try {
           setLoading(true);
           setError(null);
-          const [clubs, myClubs] = await Promise.all([
+          const [clubs, fetchedMyClubs] = await Promise.all([
             clubsApi.getPublicClubs(token!),
             clubsApi.getMyClubs(token!),
           ]);
           if (cancelled) return;
           setPublicClubs(clubs);
-          setMyClubIds(new Set(myClubs.map(c => c.bookClubId)));
+          setMyClubs(fetchedMyClubs);
+          setMyClubIds(new Set(fetchedMyClubs.map(c => c.bookClubId)));
           // Check if user already owns a club
           const myMemberships = await clubMembersApi.getMyMemberships(token!);
           if (cancelled) return;
@@ -222,7 +228,7 @@ export default function ClubsScreen() {
     setSearchLoading(true);
     debounceRef.current = setTimeout(async () => {
       try {
-        const results = await clubsApi.searchPublicClubs(q.trim(), token!);
+        const results = await clubsApi.searchAllClubs(q.trim(), token!);
         setSearchResults(results);
       } catch { setSearchResults([]); }
       finally { setSearchLoading(false); }
@@ -231,7 +237,8 @@ export default function ClubsScreen() {
 
   const handleClubCreated = (club: BookClubResponse) => {
     setCreateVisible(false);
-    setPublicClubs(prev => [club, ...prev]);
+    if (!club.privacy) setPublicClubs(prev => [club, ...prev]);
+    setMyClubs(prev => [club, ...prev]);
     setMyClubIds(prev => new Set([...prev, club.bookClubId]));
     setAlreadyOwnsClub(true);
     router.push({ pathname: '/club/[id]', params: { id: String(club.bookClubId) } } as any);
@@ -239,7 +246,6 @@ export default function ClubsScreen() {
 
   const isSearching = searchQuery.trim().length > 0;
   const displayClubs = isSearching ? searchResults : publicClubs;
-  const myClubs = publicClubs.filter(c => myClubIds.has(c.bookClubId));
 
   // ── Not logged in ──────────────────────────────────────────────────────────
   if (!user) {
@@ -297,7 +303,7 @@ export default function ClubsScreen() {
         </View>
       ) : (
         <ScrollView contentContainerStyle={{ paddingBottom: 32 }}>
-          {/* My Clubs — hidden while searching */}
+          {/* My Clubs — hidden while searching; uses full list including private clubs */}
           {!isSearching && myClubs.length > 0 ? (
             <View style={styles.section}>
               <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>

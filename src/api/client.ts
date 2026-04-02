@@ -292,12 +292,25 @@ export interface BookClubItemResponse {
 // Book Club endpoints
 // ---------------------------------------------------------------------------
 
+export interface ClubJoinRequestResponse {
+  requestId: number;
+  bookClubId: number;
+  clubName: string;
+  userId: number;
+  username: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  requestedAt: string; // "YYYY-MM-DD"
+}
+
 export const clubsApi = {
   getPublicClubs: (token: string) =>
     request<BookClubResponse[]>('/clubs', { token }),
 
   searchPublicClubs: (name: string, token: string) =>
     request<BookClubResponse[]>(`/clubs/search?name=${encodeURIComponent(name)}`, { token }),
+
+  searchAllClubs: (name: string, token: string) =>
+    request<BookClubResponse[]>(`/clubs/search/all?name=${encodeURIComponent(name)}`, { token }),
 
   getMyClubs: (token: string) =>
     request<BookClubResponse[]>('/clubs/me', { token }),
@@ -356,6 +369,31 @@ export const clubMembersApi = {
       method: 'DELETE',
       token,
     }),
+};
+
+export const clubJoinRequestsApi = {
+  requestJoin: (bookClubId: number, token: string) =>
+    request<ClubJoinRequestResponse>('/club-join-requests', {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ bookClubId }),
+    }),
+
+  cancelRequest: (requestId: number, token: string) =>
+    request<void>(`/club-join-requests/${requestId}`, { method: 'DELETE', token }),
+
+  approveRequest: (requestId: number, token: string) =>
+    request<BookClubMemberResponse>(`/club-join-requests/${requestId}/approve`, { method: 'POST', token }),
+
+  rejectRequest: (requestId: number, token: string) =>
+    request<void>(`/club-join-requests/${requestId}/reject`, { method: 'POST', token }),
+
+  getPendingRequests: (clubId: number, token: string) =>
+    request<ClubJoinRequestResponse[]>(`/club-join-requests/club/${clubId}/pending`, { token }),
+
+  // Returns null if no request exists for this club
+  getMyRequest: (clubId: number, token: string) =>
+    request<ClubJoinRequestResponse>(`/club-join-requests/my/${clubId}`, { token }),
 };
 
 export const clubItemsApi = {
