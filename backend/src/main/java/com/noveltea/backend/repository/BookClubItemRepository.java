@@ -7,6 +7,7 @@ import com.noveltea.backend.model.BookClubItemStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,5 +28,8 @@ public interface BookClubItemRepository extends JpaRepository<BookClubItem, Long
 
     // Retrieve specific entry (for updates or removal)
     Optional<BookClubItem> findByBookClubAndBook(BookClub bookClub, Book book);
+
+    // All UPCOMING items across all clubs whose start date has been reached — used by the daily scheduler
+    List<BookClubItem> findByStatusAndStartDateLessThanEqual(BookClubItemStatus status, LocalDate date);
 
 }

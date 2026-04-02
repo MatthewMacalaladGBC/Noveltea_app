@@ -11,7 +11,7 @@ const H_PADDING = 16;
 
 export default function ListDetailScreen() {
   const theme = useTheme();
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
 
   const [list, setList] = useState<BookList | null>(null);
@@ -60,6 +60,8 @@ export default function ListDetailScreen() {
     fetchData();
   }, [id, token]);
 
+  const isOwner = !!list && !!user && list.creatorId === user.userId;
+
   if (loading) {
     return (
       <View style={[styles.centered, { backgroundColor: theme.colors.background }]}>
@@ -98,13 +100,15 @@ export default function ListDetailScreen() {
             coverUrl={item.coverImageUrl ?? ''}
             bookId={item.bookId}
           />
-          <TouchableOpacity
-            style={styles.removeBtn}
-            onPress={() => handleRemovePress(item)}
-            hitSlop={{ top: 6, left: 6, bottom: 6, right: 6 }}
-          >
-            <Text style={styles.removeBtnText}>×</Text>
-          </TouchableOpacity>
+          {isOwner && (
+            <TouchableOpacity
+              style={styles.removeBtn}
+              onPress={() => handleRemovePress(item)}
+              hitSlop={{ top: 6, left: 6, bottom: 6, right: 6 }}
+            >
+              <Text style={styles.removeBtnText}>×</Text>
+            </TouchableOpacity>
+          )}
         </View>
       )}
       ListHeaderComponent={
@@ -113,7 +117,7 @@ export default function ListDetailScreen() {
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
               <Text style={[styles.backText, { color: theme.colors.onBackground }]}>‹ Back</Text>
             </TouchableOpacity>
-            {list && (
+            {isOwner && (
               <TouchableOpacity onPress={() => setEditModalVisible(true)} style={styles.editButton}>
                 <Text style={[styles.editText, { color: theme.colors.primary }]}>Edit</Text>
               </TouchableOpacity>

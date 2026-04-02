@@ -343,6 +343,19 @@ export const clubMembersApi = {
 
   leaveClub: (bookClubId: number, token: string) =>
     request<void>(`/club-members/leave/${bookClubId}`, { method: 'DELETE', token }),
+
+  updateRole: (bookClubId: number, userId: number, role: 'OWNER' | 'MODERATOR' | 'MEMBER', token: string) =>
+    request<BookClubMemberResponse>(`/club-members/${bookClubId}/role`, {
+      method: 'PUT',
+      token,
+      body: JSON.stringify({ userId, role }),
+    }),
+
+  removeMember: (bookClubId: number, targetUserId: number, token: string) =>
+    request<void>(`/club-members/${bookClubId}/remove/${targetUserId}`, {
+      method: 'DELETE',
+      token,
+    }),
 };
 
 export const clubItemsApi = {
@@ -359,11 +372,13 @@ export const clubItemsApi = {
     author: string,
     coverImageUrl: string | null,
     token: string,
+    startDate?: string,
+    endDate?: string,
   ) =>
     request<BookClubItemResponse>('/club-items', {
       method: 'POST',
       token,
-      body: JSON.stringify({ bookClubId, bookId, title, author, coverImageUrl }),
+      body: JSON.stringify({ bookClubId, bookId, title, author, coverImageUrl, startDate, endDate }),
     }),
 
   updateItem: (

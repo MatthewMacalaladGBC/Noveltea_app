@@ -40,8 +40,8 @@ public class User {
     @Column(columnDefinition = "TEXT")
     private String bio;
 
-    //Date of birth
-    @Column(nullable = false)
+    //Date of birth (nullable — not required for seed/admin accounts; maturity check skips if absent)
+    @Column
     private LocalDate dateOfBirth;
 
     // Sets privacy to default to public (false)

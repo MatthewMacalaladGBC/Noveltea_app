@@ -73,6 +73,8 @@ public class BookClubItemService {
         BookClubItem bookClubItem = BookClubItem.builder()
                 .book(book)
                 .bookClub(bookClub)
+                .startDate(request.getStartDate())
+                .endDate(request.getEndDate())
                 .build();
 
         return mapToResponse(bookClubItemRepository.save(bookClubItem));

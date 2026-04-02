@@ -35,6 +35,10 @@ public class BookClubItemDto {
         // nullable; always ignored — addBook always starts as UPCOMING
         private BookClubItemStatus status;
 
+        // Optional reading window set at creation time
+        private LocalDate startDate;
+        private LocalDate endDate;
+
     }
 
     // Sent when updating a club item's status or reading dates

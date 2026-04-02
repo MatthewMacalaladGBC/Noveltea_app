@@ -30,6 +30,7 @@ import {
   Searchbar,
   Snackbar,
   Text,
+  TextInput,
   useTheme,
 } from 'react-native-paper';
 
@@ -42,28 +43,120 @@ interface OLBook {
   cover_i?: number;
 }
 
-// ─── Add Book modal (Open Library search → add to club) ───────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────
+
+function isValidDate(s: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(new Date(s).getTime());
+}
+
+// ─── Edit Date modal (start date for upcoming, end date for active) ────────
+
+function EditDateModal({
+  visible,
+  title,
+  currentValue,
+  minDate,
+  maxDate,
+  onSave,
+  onClose,
+}: {
+  visible: boolean;
+  title: string;
+  currentValue: string | null;
+  minDate?: string;  // inclusive lower bound (YYYY-MM-DD)
+  maxDate?: string;  // inclusive upper bound (YYYY-MM-DD)
+  onSave: (date: string) => void;
+  onClose: () => void;
+}) {
+  const theme = useTheme();
+  const [value, setValue] = useState(currentValue ?? '');
+  const [error, setError] = useState<string | null>(null);
+
+  // Reset when opened
+  useEffect(() => {
+    if (visible) { setValue(currentValue ?? ''); setError(null); }
+  }, [visible]);
+
+  const handleSave = () => {
+    if (!value.trim()) { setError('Please enter a date.'); return; }
+    if (!isValidDate(value)) { setError('Use format YYYY-MM-DD (e.g. 2026-05-01).'); return; }
+    if (minDate && value < minDate) {
+      setError(`Date must be on or after ${minDate}.`);
+      return;
+    }
+    if (maxDate && value > maxDate) {
+      setError(`Date must be on or before ${maxDate}.`);
+      return;
+    }
+    onSave(value);
+  };
+
+  return (
+    <Portal>
+      <Modal
+        visible={visible}
+        onDismiss={onClose}
+        contentContainerStyle={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}
+      >
+        <Text variant="titleMedium" style={{ color: theme.colors.onSurface, fontWeight: '700', marginBottom: 16 }}>
+          {title}
+        </Text>
+        <TextInput
+          label="Date (YYYY-MM-DD)"
+          value={value}
+          onChangeText={t => { setValue(t); setError(null); }}
+          keyboardType="numeric"
+          maxLength={10}
+          mode="outlined"
+          style={{ marginBottom: 4 }}
+        />
+        {minDate ? (
+          <Text style={{ color: theme.colors.onSurface, opacity: 0.5, fontSize: 11, marginBottom: 4 }}>
+            Earliest allowed: {minDate}
+          </Text>
+        ) : null}
+        {error ? <Text style={{ color: theme.colors.error, fontSize: 12, marginBottom: 8 }}>{error}</Text> : null}
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+          <Button mode="outlined" onPress={onClose} style={{ flex: 1 }}>Cancel</Button>
+          <Button mode="contained" onPress={handleSave} style={{ flex: 1 }}>Save</Button>
+        </View>
+      </Modal>
+    </Portal>
+  );
+}
+
+// ─── Add Book modal (Open Library search → pick book → set dates → add) ───
 
 function AddBookModal({
   visible,
   clubId,
   token,
+  activeItemEndDate,
   onClose,
   onAdded,
 }: {
   visible: boolean;
   clubId: number;
   token: string;
+  activeItemEndDate: string | null;  // used to enforce start-date constraint
   onClose: () => void;
   onAdded: (item: BookClubItemResponse) => void;
 }) {
   const theme = useTheme();
+
+  // Step 1 — search
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<OLBook[]>([]);
   const [searching, setSearching] = useState(false);
-  const [adding, setAdding] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Step 2 — confirm dates
+  const [pending, setPending] = useState<OLBook | null>(null);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [dateError, setDateError] = useState<string | null>(null);
+  const [adding, setAdding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleQueryChange = (q: string) => {
     setQuery(q);
@@ -82,33 +175,71 @@ function AddBookModal({
     }, 400);
   };
 
-  const handleAdd = async (book: OLBook) => {
-    const bookId = book.key.replace('/works/', '');
-    const author = book.author_name?.[0] ?? 'Unknown Author';
-    const coverImageUrl = book.cover_i
-      ? `https://covers.openlibrary.org/b/id/${book.cover_i}-M.jpg`
+  const handleSelectBook = (book: OLBook) => {
+    setPending(book);
+    setStartDate('');
+    setEndDate('');
+    setDateError(null);
+    setError(null);
+  };
+
+  const handleConfirmAdd = async () => {
+    if (!pending) return;
+
+    // Validate start date if provided
+    if (startDate.trim()) {
+      if (!isValidDate(startDate)) { setDateError('Start date must be YYYY-MM-DD.'); return; }
+      if (activeItemEndDate && startDate < activeItemEndDate) {
+        setDateError(`Start date must be on or after the active book's end date (${activeItemEndDate}).`);
+        return;
+      }
+    }
+    // Validate end date if provided
+    if (endDate.trim()) {
+      if (!isValidDate(endDate)) { setDateError('End date must be YYYY-MM-DD.'); return; }
+      if (startDate.trim() && endDate < startDate) {
+        setDateError('End date must be on or after the start date.');
+        return;
+      }
+    }
+
+    const bookId = pending.key.replace('/works/', '');
+    const author = pending.author_name?.[0] ?? 'Unknown Author';
+    const coverImageUrl = pending.cover_i
+      ? `https://covers.openlibrary.org/b/id/${pending.cover_i}-M.jpg`
       : null;
 
-    setAdding(book.key);
+    setAdding(true);
     setError(null);
     try {
-      const item = await clubItemsApi.addBook(clubId, bookId, book.title, author, coverImageUrl, token);
-      setQuery('');
-      setResults([]);
+      const item = await clubItemsApi.addBook(
+        clubId, bookId, pending.title, author, coverImageUrl, token,
+        startDate.trim() || undefined,
+        endDate.trim() || undefined,
+      );
+      dismiss();
       onAdded(item);
     } catch (e: any) {
       setError(e?.message || 'Failed to add book');
     } finally {
-      setAdding(null);
+      setAdding(false);
     }
   };
 
   const dismiss = () => {
     setQuery('');
     setResults([]);
+    setPending(null);
+    setStartDate('');
+    setEndDate('');
+    setDateError(null);
     setError(null);
     onClose();
   };
+
+  const pendingCoverUrl = pending?.cover_i
+    ? `https://covers.openlibrary.org/b/id/${pending.cover_i}-M.jpg`
+    : null;
 
   return (
     <Portal>
@@ -118,58 +249,130 @@ function AddBookModal({
         contentContainerStyle={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}
       >
         <Text variant="titleLarge" style={{ color: theme.colors.onSurface, fontWeight: '700', marginBottom: 12 }}>
-          Add a Book
+          {pending ? 'Set Reading Dates' : 'Add a Book'}
         </Text>
 
-        <Searchbar
-          placeholder="Search books..."
-          value={query}
-          onChangeText={handleQueryChange}
-          style={{ backgroundColor: theme.colors.background, elevation: 0, marginBottom: 8 }}
-          inputStyle={{ color: theme.colors.onSurface }}
-          loading={searching}
-        />
-
-        {error ? <Text style={{ color: theme.colors.error, marginBottom: 8 }}>{error}</Text> : null}
-
-        <ScrollView style={{ maxHeight: 320 }} keyboardShouldPersistTaps="handled">
-          {results.map(book => {
-            const coverUrl = book.cover_i
-              ? `https://covers.openlibrary.org/b/id/${book.cover_i}-S.jpg`
-              : null;
-            return (
-              <Pressable
-                key={book.key}
-                style={({ pressed }) => [styles.searchResultRow, { opacity: pressed ? 0.7 : 1 }]}
-                onPress={() => handleAdd(book)}
-                disabled={adding !== null}
-              >
-                {coverUrl ? (
-                  <Image source={{ uri: coverUrl }} style={styles.searchResultCover} resizeMode="cover" />
-                ) : (
-                  <View style={[styles.searchResultCover, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
-                    <Text style={{ fontSize: 8, color: theme.colors.onSurface }}>No Cover</Text>
-                  </View>
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text numberOfLines={2} style={{ color: theme.colors.onSurface, fontWeight: '600', fontSize: 13 }}>
-                    {book.title}
-                  </Text>
-                  <Text numberOfLines={1} style={{ color: theme.colors.onSurface, opacity: 0.6, fontSize: 12 }}>
-                    {book.author_name?.[0] ?? 'Unknown Author'}
-                  </Text>
+        {/* ── Step 2: date confirmation ─── */}
+        {pending ? (
+          <>
+            {/* Selected book summary */}
+            <View style={{ flexDirection: 'row', gap: 12, marginBottom: 16, alignItems: 'center' }}>
+              {pendingCoverUrl ? (
+                <Image source={{ uri: pendingCoverUrl }} style={styles.searchResultCover} resizeMode="cover" />
+              ) : (
+                <View style={[styles.searchResultCover, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+                  <Text style={{ fontSize: 8, color: theme.colors.onSurface }}>No Cover</Text>
                 </View>
-                {adding === book.key ? (
-                  <ActivityIndicator size="small" color={theme.colors.primary} />
-                ) : null}
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text numberOfLines={2} style={{ color: theme.colors.onSurface, fontWeight: '700', fontSize: 14 }}>
+                  {pending.title}
+                </Text>
+                <Text style={{ color: theme.colors.onSurface, opacity: 0.6, fontSize: 12 }}>
+                  {pending.author_name?.[0] ?? 'Unknown Author'}
+                </Text>
+              </View>
+            </View>
 
-        <Button mode="outlined" onPress={dismiss} style={{ marginTop: 12 }}>
-          Cancel
-        </Button>
+            <Text style={{ color: theme.colors.onSurface, opacity: 0.6, fontSize: 12, marginBottom: 10 }}>
+              Dates are optional — you can set them later.
+            </Text>
+
+            {activeItemEndDate ? (
+              <Text style={{ color: theme.colors.onSurface, opacity: 0.5, fontSize: 11, marginBottom: 8 }}>
+                Active book ends {activeItemEndDate} — start date must be on or after that.
+              </Text>
+            ) : null}
+
+            <TextInput
+              label="Start Date (YYYY-MM-DD) — optional"
+              value={startDate}
+              onChangeText={t => { setStartDate(t); setDateError(null); }}
+              keyboardType="numeric"
+              maxLength={10}
+              mode="outlined"
+              style={{ marginBottom: 10 }}
+            />
+            <TextInput
+              label="End Date (YYYY-MM-DD) — optional"
+              value={endDate}
+              onChangeText={t => { setEndDate(t); setDateError(null); }}
+              keyboardType="numeric"
+              maxLength={10}
+              mode="outlined"
+              style={{ marginBottom: 4 }}
+            />
+
+            {dateError ? <Text style={{ color: theme.colors.error, fontSize: 12, marginBottom: 4 }}>{dateError}</Text> : null}
+            {error ? <Text style={{ color: theme.colors.error, fontSize: 12, marginBottom: 4 }}>{error}</Text> : null}
+
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+              <Button mode="outlined" onPress={() => setPending(null)} style={{ flex: 1 }} disabled={adding}>
+                ← Back
+              </Button>
+              <Button mode="contained" onPress={handleConfirmAdd} loading={adding} disabled={adding} style={{ flex: 1 }}>
+                Add Book
+              </Button>
+            </View>
+          </>
+        ) : (
+          /* ── Step 1: search ─── */
+          <>
+            <Searchbar
+              placeholder="Search books..."
+              value={query}
+              onChangeText={handleQueryChange}
+              style={{ backgroundColor: theme.colors.background, elevation: 0, marginBottom: 8 }}
+              inputStyle={{ color: theme.colors.onSurface }}
+              loading={searching}
+            />
+
+            <FlatList
+              data={results}
+              keyExtractor={book => book.key}
+              style={{ maxHeight: 300 }}
+              keyboardShouldPersistTaps="always"
+              renderItem={({ item: book }) => {
+                const coverUrl = book.cover_i
+                  ? `https://covers.openlibrary.org/b/id/${book.cover_i}-S.jpg`
+                  : null;
+                return (
+                  <Pressable
+                    style={({ pressed }) => [styles.searchResultRow, { opacity: pressed ? 0.7 : 1 }]}
+                    onPress={() => handleSelectBook(book)}
+                  >
+                    {coverUrl ? (
+                      <Image source={{ uri: coverUrl }} style={styles.searchResultCover} resizeMode="cover" />
+                    ) : (
+                      <View style={[styles.searchResultCover, { backgroundColor: theme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
+                        <Text style={{ fontSize: 8, color: theme.colors.onSurface }}>No Cover</Text>
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text numberOfLines={2} style={{ color: theme.colors.onSurface, fontWeight: '600', fontSize: 13 }}>
+                        {book.title}
+                      </Text>
+                      <Text numberOfLines={1} style={{ color: theme.colors.onSurface, opacity: 0.6, fontSize: 12 }}>
+                        {book.author_name?.[0] ?? 'Unknown Author'}
+                      </Text>
+                    </View>
+                  </Pressable>
+                );
+              }}
+              ListEmptyComponent={
+                !searching && query.trim().length > 0 ? (
+                  <Text style={{ color: theme.colors.onSurface, opacity: 0.5, textAlign: 'center', paddingVertical: 16 }}>
+                    No results found.
+                  </Text>
+                ) : null
+              }
+            />
+
+            <Button mode="outlined" onPress={dismiss} style={{ marginTop: 12 }}>
+              Cancel
+            </Button>
+          </>
+        )}
       </Modal>
     </Portal>
   );
@@ -193,6 +396,10 @@ export default function ClubHubScreen() {
   const [error, setError] = useState<string | null>(null);
   const [snackMessage, setSnackMessage] = useState<string | null>(null);
   const [addBookVisible, setAddBookVisible] = useState(false);
+  const [editDateState, setEditDateState] = useState<{
+    item: BookClubItemResponse;
+    field: 'startDate' | 'endDate';
+  } | null>(null);
 
   const isOwner = myMembership?.role === 'OWNER';
   const isModerator = myMembership?.role === 'MODERATOR';
@@ -325,6 +532,54 @@ export default function ClubHubScreen() {
     }
   };
 
+  const handleUpdateRole = (member: BookClubMemberResponse, newRole: 'MODERATOR' | 'MEMBER') => {
+    const label = newRole === 'MODERATOR' ? 'Promote to Moderator' : 'Demote to Member';
+    Alert.alert(label, `${label} @${member.username}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Confirm', onPress: async () => {
+          try {
+            const updated = await clubMembersApi.updateRole(clubId, member.userId, newRole, token!);
+            setMembers(prev => prev.map(m => m.clubMemberId === updated.clubMemberId ? updated : m));
+            setSnackMessage(`@${member.username} is now a ${newRole.toLowerCase()}.`);
+          } catch (e: any) {
+            setSnackMessage(e?.message || 'Failed to update role');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleRemoveMember = (member: BookClubMemberResponse) => {
+    Alert.alert('Remove Member', `Remove @${member.username} from the club?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Remove', style: 'destructive', onPress: async () => {
+          try {
+            await clubMembersApi.removeMember(clubId, member.userId, token!);
+            setMembers(prev => prev.filter(m => m.clubMemberId !== member.clubMemberId));
+            setClub(prev => prev ? { ...prev, memberCount: Math.max(0, (prev.memberCount ?? 1) - 1) } : prev);
+            setSnackMessage(`@${member.username} removed from the club.`);
+          } catch (e: any) {
+            setSnackMessage(e?.message || 'Failed to remove member');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleEditDate = async (item: BookClubItemResponse, field: 'startDate' | 'endDate', value: string) => {
+    try {
+      const updated = await clubItemsApi.updateItem(item.clubItemId, { [field]: value }, token!);
+      setItems(prev => prev.map(i => i.clubItemId === updated.clubItemId ? updated : i));
+      setSnackMessage('Date updated.');
+    } catch (e: any) {
+      setSnackMessage(e?.message || 'Failed to update date');
+    } finally {
+      setEditDateState(null);
+    }
+  };
+
   const handleRemoveItem = (item: BookClubItemResponse) => {
     Alert.alert('Remove Book', `Remove "${item.bookTitle}" from the club?`, [
       { text: 'Cancel', style: 'cancel' },
@@ -426,7 +681,13 @@ export default function ClubHubScreen() {
                   Currently Reading
                 </Text>
                 {activeItem ? (
-                  <CurrentReadCard item={activeItem} canManage={canManage} onRemove={() => handleRemoveItem(activeItem)} theme={theme} />
+                  <CurrentReadCard
+                    item={activeItem}
+                    canManage={canManage}
+                    onRemove={() => handleRemoveItem(activeItem)}
+                    onEditEndDate={() => setEditDateState({ item: activeItem, field: 'endDate' })}
+                    theme={theme}
+                  />
                 ) : (
                   <Text style={{ color: theme.colors.onSurface, opacity: 0.5 }}>
                     No book set yet.{canManage ? ' Add one below.' : ''}
@@ -459,6 +720,7 @@ export default function ClubHubScreen() {
                       canManage={canManage}
                       onSetActive={() => handleSetActive(item)}
                       onRemove={() => handleRemoveItem(item)}
+                      onEditStartDate={() => setEditDateState({ item, field: 'startDate' })}
                       theme={theme}
                     />
                   ))
@@ -487,25 +749,46 @@ export default function ClubHubScreen() {
                 <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
                   Members ({members.length})
                 </Text>
-                {members.map(m => (
-                  <View key={m.clubMemberId} style={styles.memberRow}>
-                    <Avatar.Text
-                      size={36}
-                      label={m.username.charAt(0).toUpperCase()}
-                      style={{ backgroundColor: theme.colors.primary }}
-                    />
-                    <Text
-                      variant="bodyMedium"
-                      style={{ color: theme.colors.onBackground, flex: 1 }}
-                      onPress={() => router.push({ pathname: '/user/[username]', params: { username: m.username } } as any)}
-                    >
-                      {m.username}
-                    </Text>
-                    <Chip compact style={{ backgroundColor: theme.colors.surface }}>
-                      {m.role}
-                    </Chip>
-                  </View>
-                ))}
+                {members.map(m => {
+                  const isThisMe = m.userId === user?.userId;
+                  const isThisOwner = m.role === 'OWNER';
+                  const isThisMod = m.role === 'MODERATOR';
+                  return (
+                    <View key={m.clubMemberId} style={styles.memberRow}>
+                      <Avatar.Text
+                        size={36}
+                        label={m.username.charAt(0).toUpperCase()}
+                        style={{ backgroundColor: theme.colors.primary }}
+                      />
+                      <Pressable
+                        style={{ flex: 1 }}
+                        onPress={() => router.push({ pathname: '/user/[username]', params: { username: m.username } } as any)}
+                      >
+                        <Text variant="bodyMedium" style={{ color: theme.colors.onBackground }}>
+                          {m.username}{isThisMe ? ' (you)' : ''}
+                        </Text>
+                      </Pressable>
+                      <Chip compact style={{ backgroundColor: theme.colors.surface }}>
+                        {m.role}
+                      </Chip>
+                      {/* Owner-only role controls — hidden for own row and the owner row */}
+                      {isOwner && !isThisMe && !isThisOwner ? (
+                        <View style={{ flexDirection: 'row', gap: 6, marginLeft: 4 }}>
+                          <Pressable onPress={() => handleUpdateRole(m, isThisMod ? 'MEMBER' : 'MODERATOR')}>
+                            <Text style={{ fontSize: 11, color: theme.colors.primary, fontWeight: '700' }}>
+                              {isThisMod ? 'Demote' : 'Mod'}
+                            </Text>
+                          </Pressable>
+                          <Pressable onPress={() => handleRemoveMember(m)}>
+                            <Text style={{ fontSize: 11, color: theme.colors.error, fontWeight: '700' }}>
+                              Remove
+                            </Text>
+                          </Pressable>
+                        </View>
+                      ) : null}
+                    </View>
+                  );
+                })}
               </View>
 
               <Divider style={{ marginVertical: 8 }} />
@@ -562,12 +845,32 @@ export default function ClubHubScreen() {
         visible={addBookVisible}
         clubId={clubId}
         token={token!}
+        activeItemEndDate={activeItem?.endDate ?? null}
         onClose={() => setAddBookVisible(false)}
         onAdded={item => {
           setItems(prev => [...prev, item]);
           setAddBookVisible(false);
           setSnackMessage(`"${item.bookTitle}" added to upcoming reads!`);
         }}
+      />
+
+      <EditDateModal
+        visible={editDateState !== null}
+        title={editDateState?.field === 'startDate' ? 'Set Start Date' : 'Set End Date'}
+        currentValue={
+          editDateState
+            ? (editDateState.field === 'startDate'
+                ? editDateState.item.startDate
+                : editDateState.item.endDate) ?? null
+            : null
+        }
+        minDate={
+          editDateState?.field === 'startDate' && activeItem?.endDate
+            ? activeItem.endDate
+            : undefined
+        }
+        onSave={value => editDateState && handleEditDate(editDateState.item, editDateState.field, value)}
+        onClose={() => setEditDateState(null)}
       />
 
       <Portal>
@@ -585,11 +888,13 @@ function CurrentReadCard({
   item,
   canManage,
   onRemove,
+  onEditEndDate,
   theme,
 }: {
   item: BookClubItemResponse;
   canManage: boolean;
   onRemove: () => void;
+  onEditEndDate: () => void;
   theme: any;
 }) {
   const bookId = item.bookId.replace('/works/', '');
@@ -621,9 +926,16 @@ function CurrentReadCard({
         </View>
       </View>
       {canManage ? (
-        <Pressable onPress={onRemove} style={{ alignSelf: 'flex-end', marginTop: 8 }}>
-          <Text style={{ color: theme.colors.error, fontSize: 12 }}>Remove</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 16, marginTop: 8 }}>
+          <Pressable onPress={onEditEndDate}>
+            <Text style={{ color: theme.colors.primary, fontSize: 12 }}>
+              {item.endDate ? 'Edit End Date' : 'Set End Date'}
+            </Text>
+          </Pressable>
+          <Pressable onPress={onRemove}>
+            <Text style={{ color: theme.colors.error, fontSize: 12 }}>Remove</Text>
+          </Pressable>
+        </View>
       ) : null}
     </Pressable>
   );
@@ -634,12 +946,14 @@ function UpcomingBookCard({
   canManage,
   onSetActive,
   onRemove,
+  onEditStartDate,
   theme,
 }: {
   item: BookClubItemResponse;
   canManage: boolean;
   onSetActive: () => void;
   onRemove: () => void;
+  onEditStartDate: () => void;
   theme: any;
 }) {
   const bookId = item.bookId.replace('/works/', '');
@@ -663,12 +977,22 @@ function UpcomingBookCard({
           <Text numberOfLines={1} style={{ color: theme.colors.onSurface, opacity: 0.65, fontSize: 12 }}>
             {item.bookAuthor}
           </Text>
+          {item.startDate ? (
+            <Text style={{ color: theme.colors.onSurface, opacity: 0.5, fontSize: 11 }}>
+              Starts: {item.startDate}{item.endDate ? ` · Ends: ${item.endDate}` : ''}
+            </Text>
+          ) : null}
         </View>
       </Pressable>
       {canManage ? (
-        <View style={{ flexDirection: 'row', gap: 8, alignSelf: 'center' }}>
+        <View style={{ flexDirection: 'column', gap: 6, alignSelf: 'center', alignItems: 'flex-end' }}>
           <Pressable onPress={onSetActive}>
             <Text style={{ color: theme.colors.primary, fontSize: 12, fontWeight: '700' }}>Set Active</Text>
+          </Pressable>
+          <Pressable onPress={onEditStartDate}>
+            <Text style={{ color: theme.colors.primary, fontSize: 12 }}>
+              {item.startDate ? 'Edit Start' : 'Set Start'}
+            </Text>
           </Pressable>
           <Pressable onPress={onRemove}>
             <Text style={{ color: theme.colors.error, fontSize: 12 }}>Remove</Text>
