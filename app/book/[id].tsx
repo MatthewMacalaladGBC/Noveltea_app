@@ -165,12 +165,18 @@ export default function BookDetailsScreen() {
     }
   }
 
+  const fetchWithTimeout = (url: string, ms = 15000) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), ms);
+    return fetch(url, { signal: controller.signal }).finally(() => clearTimeout(timer));
+  };
+
   const fetchBookDetails = async (bookId: string) => {
     setLoading(true);
     setError(null);
     try {
       const cleanId = bookId.replace('/works/', '');
-      const response = await fetch(`https://openlibrary.org/works/${cleanId}.json`);
+      const response = await fetchWithTimeout(`https://openlibrary.org/works/${cleanId}.json`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch book details: ${response.status}`);
@@ -202,17 +208,22 @@ export default function BookDetailsScreen() {
         const authorPromises = data.authors.slice(0, 3).map(async (a: any) => {
           const authorKey = a.author?.key?.replace('/authors/', '');
           if (!authorKey) return null;
-          const res = await fetch(`https://openlibrary.org/authors/${authorKey}.json`);
-          const authorData = await res.json();
-          return authorData.name;
+          return fetchWithTimeout(`https://openlibrary.org/authors/${authorKey}.json`)
+            .then(res => res.ok ? res.json() : null)
+            .then(authorData => authorData?.name ?? null)
+            .catch(() => null);
         });
 
         const names = await Promise.all(authorPromises);
         setAuthors(names.filter(Boolean).join(', ') || 'Unknown Author');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error fetching book details:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load book details');
+      if (err?.name === 'AbortError') {
+        setError('Request timed out. Open Library may be slow — please try again.');
+      } else {
+        setError(err instanceof Error ? err.message : 'Failed to load book details');
+      }
     } finally {
       setLoading(false);
     }

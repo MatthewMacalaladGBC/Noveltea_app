@@ -2,7 +2,7 @@ import BookCard from '@/src/components/cards/BookCard';
 import { useAuth } from '@/src/context/AuthContext';
 import { useThemeContext } from '@/src/ThemeContext';
 import { router } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Button, IconButton, Searchbar, Text, useTheme } from 'react-native-paper';
 
@@ -72,6 +72,24 @@ export default function HomeScreen() {
   const handleCategoryPress = (apiGenre: string) => {
     router.push(`/category/${apiGenre}` as any);
   };
+
+  const renderTrendingItem = useCallback(({ item }: { item: Book }) => {
+    const title = item?.title || 'Unknown Title';
+    const author = item?.author_name?.[0] || 'Unknown Author';
+    const coverUrl = item?.cover_i
+      ? `https://covers.openlibrary.org/b/id/${item.cover_i}-M.jpg`
+      : '';
+    const bookId = item.key.replace('/works/', '');
+    return (
+      <BookCard
+        title={title}
+        author={author}
+        coverUrl={coverUrl}
+        bookId={item.key}
+        onPress={() => router.push({ pathname: '/book/[id]', params: { id: bookId } })}
+      />
+    );
+  }, []);
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
@@ -179,24 +197,7 @@ export default function HomeScreen() {
           horizontal
           data={books.slice(0, 15)}
           keyExtractor={(item, index) => `${item.key}-${index}`}
-          renderItem={({ item }) => {
-            const title = item?.title || 'Unknown Title';
-            const author = item?.author_name?.[0] || 'Unknown Author';
-            const coverUrl = item?.cover_i
-              ? `https://covers.openlibrary.org/b/id/${item.cover_i}-M.jpg`
-              : '';
-            const bookId = item.key.replace('/works/', '');
-            
-            return (
-              <BookCard
-                title={title}
-                author={author}
-                coverUrl={coverUrl}
-                bookId={item.key}
-                onPress={() => router.push({ pathname: '/book/[id]', params: { id: bookId } })}
-              />
-            );
-          }}
+          renderItem={renderTrendingItem}
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.horizontalList}
         />
