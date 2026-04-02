@@ -136,8 +136,8 @@ export default function ExploreScreen() {
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Default to 18 so users without dateOfBirth are not filtered
-  const userAge = user?.dateOfBirth ? calculateAge(user.dateOfBirth) : 18;
+  // Guests: treat as under-18 (filter mature). Logged-in without DOB: treat as 18 (no filter).
+  const userAge = !user ? 0 : (user.dateOfBirth ? calculateAge(user.dateOfBirth) : 18);
 
   useFocusEffect(
     useCallback(() => {

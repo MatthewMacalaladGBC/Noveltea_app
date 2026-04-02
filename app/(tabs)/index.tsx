@@ -23,11 +23,19 @@ export default function HomeScreen() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
+  const fetchTrending = () => {
+    setLoading(true);
     const FICTION_GENRES = ['fantasy', 'science_fiction', 'romance'];
+    const TIMEOUT_MS = 10000;
+
     Promise.all(
-      FICTION_GENRES.map(genre =>
-        fetch(`https://openlibrary.org/subjects/${genre}.json?sort=trending&limit=5`)
+      FICTION_GENRES.map(genre => {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+        return fetch(
+          `https://openlibrary.org/subjects/${genre}.json?sort=trending&limit=5`,
+          { signal: controller.signal }
+        )
           .then(res => res.ok ? res.json() : null)
           .then(data => (data?.works ?? []).map((w: any) => ({
             key: w.key,
@@ -36,12 +44,15 @@ export default function HomeScreen() {
             cover_i: w.cover_id,
           })))
           .catch(() => [])
-      )
+          .finally(() => clearTimeout(timer));
+      })
     )
       .then(results => setBooks(results.flat()))
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  };
+
+  useEffect(() => { fetchTrending(); }, []);
 
   // Category data with API genre mapping
   const categories = [
@@ -154,6 +165,15 @@ export default function HomeScreen() {
         </View>
         {loading && (
           <ActivityIndicator style={{ marginVertical: 16 }} color={theme.colors.primary} />
+        )}
+        {!loading && books.length === 0 && (
+          <Button
+            mode="outlined"
+            onPress={fetchTrending}
+            style={{ marginHorizontal: 16, marginBottom: 8 }}
+          >
+            Retry
+          </Button>
         )}
         <FlatList
           horizontal
