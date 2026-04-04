@@ -152,8 +152,9 @@ public class ReviewServiceImpl implements ReviewService {
         } else {
             reviews = reviewRepository.findByUser_UserIdAndVisibilityTrue(targetUserId);
         }
-        return reviews.stream().map(this::toResponse).toList();
-    }
+        return reviews.stream()
+            .map(review -> toResponse(review, requesterId))
+            .toList();    }
 
     // ---------------- COUNT ----------------
 
