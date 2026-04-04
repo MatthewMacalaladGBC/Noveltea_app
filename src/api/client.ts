@@ -24,6 +24,11 @@ export interface UserProfile {
   role: string;
   joinDate: string; // "YYYY-MM-DD"
   dateOfBirth: string; // "YYYY-MM-DD"
+  points?: number;
+  reviewLikesReceived?: number;
+  currentStreak?: number;
+  longestStreak?: number;
+  lastActiveDate?: string | null;
 }
 
 // Mirrors UserDto.PublicResponse (other users — no email)
@@ -34,6 +39,11 @@ export interface PublicUserProfile {
   privacy: boolean;
   role: string;
   joinDate: string; // "YYYY-MM-DD"
+  points?: number;
+  reviewLikesReceived?: number;
+  currentStreak?: number;
+  longestStreak?: number;
+  lastActiveDate?: string | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -203,6 +213,9 @@ export const usersApi = {
   // Searches public users by username — startsWith results sorted first
   search: (query: string, token: string) =>
     request<PublicUserProfile[]>(`/users/search?username=${encodeURIComponent(query)}`, { token }),
+
+  getLeaderboard: (token: string) =>
+    request<PublicUserProfile[]>('/users/leaderboard', { token }),
 };
 
 // ---------------------------------------------------------------------------

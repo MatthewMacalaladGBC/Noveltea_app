@@ -126,7 +126,11 @@ public class UserService {
                 .privacy(user.getPrivacy())
                 .role(user.getRole() == null ? null : user.getRole().toString())
                 .joinDate(user.getJoinDate())
-                .dateOfBirth(user.getDateOfBirth())
+                .points(user.getPoints())
+                .reviewLikesReceived(user.getReviewLikesReceived())
+                .currentStreak(user.getCurrentStreak())
+                .longestStreak(user.getLongestStreak())
+                .lastActiveDate(user.getLastActiveDate())
                 .build();
     }
 
@@ -138,6 +142,17 @@ public class UserService {
                 .privacy(user.getPrivacy())
                 .role(user.getRole() == null ? null : user.getRole().toString())
                 .joinDate(user.getJoinDate())
+                .points(user.getPoints())
+                .reviewLikesReceived(user.getReviewLikesReceived())
+                .currentStreak(user.getCurrentStreak())
+                .longestStreak(user.getLongestStreak())
+                .lastActiveDate(user.getLastActiveDate())
                 .build();
     }
+
+    public List<UserDto.PublicResponse> getLeaderboard() {
+    return userRepository.findAllByOrderByPointsDesc().stream()
+            .map(this::toPublicResponse)
+            .toList();
+}
 }

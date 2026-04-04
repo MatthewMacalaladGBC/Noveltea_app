@@ -25,4 +25,5 @@ public interface UserRepository extends JpaRepository<User, Long> {
     // Look for all usernames containing an entered string
     List<User> findByUsernameContainingIgnoreCase(String username);
 
+    List<User> findAllByOrderByPointsDesc();
 }

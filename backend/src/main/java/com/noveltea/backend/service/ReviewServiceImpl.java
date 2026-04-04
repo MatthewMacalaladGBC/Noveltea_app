@@ -13,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.noveltea.backend.model.ReviewLike;
 import com.noveltea.backend.repository.ReviewLikeRepository;
+import com.noveltea.backend.service.GamificationService;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -24,6 +25,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final UserRepository userRepository;
     private final BookService bookService;
     private final ReviewLikeRepository reviewLikeRepository;
+    private final GamificationService gamificationService;
 
     // ---------------- CREATE ----------------
 
@@ -54,6 +56,9 @@ public class ReviewServiceImpl implements ReviewService {
         }
 
         Review saved = reviewRepository.save(review);
+        
+        gamificationService.awardPoints(userId, GamificationService.POINTS_FOR_REVIEW_CREATED);
+        gamificationService.updateDailyStreak(userId);
 
         // rating recalc after create
         bookService.recalculateRating(book.getBookId());
@@ -135,6 +140,7 @@ public class ReviewServiceImpl implements ReviewService {
         }
 
         String bookId = review.getBook().getBookId();
+        gamificationService.removePoints(userId, GamificationService.POINTS_REMOVED_WHEN_REVIEW_DELETED);
         reviewRepository.delete(review);
 
         // rating recalc after delete
@@ -193,7 +199,7 @@ public class ReviewServiceImpl implements ReviewService {
             .build();
 }
 
-        // ---------------- Like and Unlike Reviews ----------------
+        // ---------------- Like Reviews ----------------
 
     @Override
     @Transactional
@@ -225,11 +231,15 @@ public class ReviewServiceImpl implements ReviewService {
 
         reviewLikeRepository.save(reviewLike);
 
+        gamificationService.addReceivedLike(review.getUser().getUserId());
+
         review.setLikes((int) reviewLikeRepository.countByReview(review));
         Review savedReview = reviewRepository.save(review);
 
         return toResponse(savedReview, userId); 
     }
+    // ---------------- Unlike Reviews ----------------
+
 
     @Override
     @Transactional
@@ -245,6 +255,8 @@ public class ReviewServiceImpl implements ReviewService {
                 .orElseThrow(() -> new ResourceNotFoundException("Like not found for this review"));
 
         reviewLikeRepository.delete(reviewLike);
+
+        gamificationService.removeReceivedLike(review.getUser().getUserId());
 
         review.setLikes((int) reviewLikeRepository.countByReview(review));
         Review savedReview = reviewRepository.save(review);

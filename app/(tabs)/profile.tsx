@@ -183,6 +183,7 @@ export default function ProfileScreen() {
               Followers
             </Text>
           </Pressable>
+
           <Pressable
             style={styles.statItem}
             onPress={() => router.push({ pathname: '/follows/[id]', params: { id: String(user.userId), tab: 'following' } } as any)}
@@ -194,6 +195,7 @@ export default function ProfileScreen() {
               Following
             </Text>
           </Pressable>
+
           <Pressable
             style={styles.statItem}
             onPress={() => router.push({ pathname: '/user-reviews/[username]', params: { username: user.username } } as any)}
@@ -300,6 +302,12 @@ export default function ProfileScreen() {
             onPress={() => console.log('Reading goals')}
           />
           <List.Item
+            title="Achievements"
+            left={props => <List.Icon {...props} icon="trophy-outline" />}
+            right={props => <List.Icon {...props} icon="chevron-right" />}
+            onPress={() => router.push('/achievements' as any)}
+          />
+          <List.Item
             title="Book Clubs"
             left={props => <List.Icon {...props} icon="account-group" />}
             right={props => <List.Icon {...props} icon="chevron-right" />}
@@ -377,12 +385,15 @@ const styles = StyleSheet.create({
   },
   statsContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-around',
     paddingVertical: 24,
     paddingHorizontal: 20,
+    rowGap: 16,
   },
   statItem: {
     alignItems: 'center',
+    minWidth: 90,
   },
   statNumber: {
     fontWeight: 'bold',

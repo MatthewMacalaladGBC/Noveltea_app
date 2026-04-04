@@ -27,6 +27,11 @@ public class UserController extends BaseController {
         return ResponseEntity.ok(userService.searchUsers(username));
     }
 
+    @GetMapping("/leaderboard")
+    public ResponseEntity<List<UserDto.PublicResponse>> getLeaderboard() {
+        return ResponseEntity.ok(userService.getLeaderboard());
+    }
+
     // GET /users/username/{username} — look up public profile by username
     @GetMapping("/username/{username}")
     public ResponseEntity<UserDto.PublicResponse> getUserByUsername(

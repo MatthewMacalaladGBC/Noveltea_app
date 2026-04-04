@@ -74,7 +74,11 @@ public class UserDto {
         private String role;
         private LocalDate joinDate;
         private LocalDate dateOfBirth;
-
+        private Integer points;
+        private Integer reviewLikesReceived;
+        private Integer currentStreak;
+        private Integer longestStreak;
+        private LocalDate lastActiveDate;
     }
 
     // Returned by the backend when sending user data to the frontend (other user - private info like email not returned)
@@ -90,7 +94,11 @@ public class UserDto {
         private Boolean privacy;
         private String role;
         private LocalDate joinDate;
-
+        private Integer points;
+        private Integer reviewLikesReceived;
+        private Integer currentStreak;
+        private Integer longestStreak;
+        private LocalDate lastActiveDate;
     }
 
 }

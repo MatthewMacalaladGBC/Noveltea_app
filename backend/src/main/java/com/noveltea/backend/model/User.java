@@ -58,4 +58,21 @@ public class User {
     @Column(nullable = false)
     private LocalDate joinDate = LocalDate.now();
 
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private Integer points = 0;
+
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private Integer reviewLikesReceived = 0;
+
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private Integer currentStreak = 0;
+
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private Integer longestStreak = 0;
+
+    private LocalDate lastActiveDate;
 }
