@@ -2,10 +2,14 @@ import {
   BookClubItemResponse,
   BookClubMemberResponse,
   BookClubResponse,
+  ClubAnnouncementResponse,
   ClubJoinRequestResponse,
+  ClubPollResponse,
+  clubAnnouncementsApi,
   clubItemsApi,
   clubJoinRequestsApi,
   clubMembersApi,
+  clubPollsApi,
   clubsApi,
 } from '@/src/api/client';
 import { useAuth } from '@/src/context/AuthContext';
@@ -395,6 +399,9 @@ export default function ClubHubScreen() {
   const [myJoinRequest, setMyJoinRequest] = useState<ClubJoinRequestResponse | null>(null);
   const [pendingRequests, setPendingRequests] = useState<ClubJoinRequestResponse[]>([]);
 
+  const [announcement, setAnnouncement] = useState<ClubAnnouncementResponse | null>(null);
+  const [poll, setPoll] = useState<ClubPollResponse | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -404,6 +411,23 @@ export default function ClubHubScreen() {
     item: BookClubItemResponse;
     field: 'startDate' | 'endDate';
   } | null>(null);
+
+  // Edit club modal state
+  const [editClubModalVisible, setEditClubModalVisible] = useState(false);
+  const [editClubName, setEditClubName] = useState('');
+  const [editClubDescription, setEditClubDescription] = useState('');
+  const [editClubPrivacy, setEditClubPrivacy] = useState(false);
+  const [editClubSaving, setEditClubSaving] = useState(false);
+
+  // Announcement modal state
+  const [announcementModalVisible, setAnnouncementModalVisible] = useState(false);
+  const [announcementText, setAnnouncementText] = useState('');
+  const [announcementSaving, setAnnouncementSaving] = useState(false);
+
+  // Poll creation modal state
+  const [pollModalVisible, setPollModalVisible] = useState(false);
+  const [pollQuestion, setPollQuestion] = useState('');
+  const [pollOptions, setPollOptions] = useState(['', '']);
 
   const isOwner = myMembership?.role === 'OWNER';
   const isModerator = myMembership?.role === 'MODERATOR';
@@ -436,12 +460,16 @@ export default function ClubHubScreen() {
       // Phase 2: member path vs non-member-of-private path
       if (mine || !clubData.privacy) {
         // Member, or public club anyone can browse
-        const [membersData, itemsData] = await Promise.all([
+        const [membersData, itemsData, announcementData, pollData] = await Promise.all([
           clubMembersApi.getMembersByClub(clubId, token!),
           clubItemsApi.getItemsByClub(clubId, token!),
+          clubAnnouncementsApi.get(clubId, token!).catch(() => null),
+          clubPollsApi.getActive(clubId, token!).catch(() => null),
         ]);
         setMembers(membersData);
         setItems(itemsData);
+        setAnnouncement(announcementData);
+        setPoll(pollData);
 
         // Owner/mods also fetch pending join requests
         if (mine?.role === 'OWNER' || mine?.role === 'MODERATOR') {
@@ -554,6 +582,32 @@ export default function ClubHubScreen() {
     ]);
   };
 
+  const handleOpenEditClub = () => {
+    setEditClubName(club?.name ?? '');
+    setEditClubDescription(club?.description ?? '');
+    setEditClubPrivacy(club?.privacy ?? false);
+    setEditClubModalVisible(true);
+  };
+
+  const handleSaveEditClub = async () => {
+    if (!editClubName.trim()) return;
+    setEditClubSaving(true);
+    try {
+      const updated = await clubsApi.updateClub(
+        clubId,
+        { name: editClubName.trim(), description: editClubDescription.trim() || null, privacy: editClubPrivacy },
+        token!
+      );
+      setClub(updated);
+      setEditClubModalVisible(false);
+      setSnackMessage('Club updated.');
+    } catch (e: any) {
+      setSnackMessage(e?.message || 'Failed to update club');
+    } finally {
+      setEditClubSaving(false);
+    }
+  };
+
   const handleDeleteClub = () => {
     Alert.alert(
       'Delete Club',
@@ -576,21 +630,165 @@ export default function ClubHubScreen() {
     );
   };
 
-  const handleSetActive = async (item: BookClubItemResponse) => {
+  const handleSetActive = (item: BookClubItemResponse) => {
+    if (activeItem) {
+      Alert.alert(
+        'Replace Current Read?',
+        `"${activeItem.bookTitle}" is currently active. What should happen to it?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Move Back to Upcoming', onPress: () => doSetActive(item, 'revert') },
+          { text: 'Mark as Completed', onPress: () => doSetActive(item, 'complete') },
+        ]
+      );
+    } else {
+      doSetActive(item, null);
+    }
+  };
+
+  const doSetActive = async (item: BookClubItemResponse, conflictResolution: 'revert' | 'complete' | null) => {
     setActionLoading(true);
     try {
-      const updated = await clubItemsApi.updateItem(item.clubItemId, { status: 'ACTIVE' }, token!);
-      setItems(prev => prev.map(i => {
-        if (i.status === 'ACTIVE') return { ...i, status: 'COMPLETED' };
-        if (i.clubItemId === updated.clubItemId) return updated;
-        return i;
-      }));
+      if (conflictResolution === 'complete' && activeItem) {
+        const today = new Date().toISOString().split('T')[0];
+        await clubItemsApi.updateItem(activeItem.clubItemId, { status: 'COMPLETED', endDate: today }, token!);
+      } else if (conflictResolution === 'revert' && activeItem) {
+        await clubItemsApi.updateItem(activeItem.clubItemId, { status: 'UPCOMING' }, token!);
+      }
+      await clubItemsApi.updateItem(item.clubItemId, { status: 'ACTIVE' }, token!);
+      const fresh = await clubItemsApi.getItemsByClub(clubId, token!);
+      setItems(fresh);
       setSnackMessage(`"${item.bookTitle}" is now the current read!`);
     } catch (e: any) {
       setSnackMessage(e?.message || 'Failed to update');
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleMoveToUpcoming = () => {
+    if (!activeItem) return;
+    Alert.alert(
+      'Move to Upcoming?',
+      `Move "${activeItem.bookTitle}" back to upcoming reads?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Move to Upcoming',
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              await clubItemsApi.updateItem(activeItem.clubItemId, { status: 'UPCOMING' }, token!);
+              const fresh = await clubItemsApi.getItemsByClub(clubId, token!);
+              setItems(fresh);
+              setSnackMessage(`"${activeItem.bookTitle}" moved back to upcoming.`);
+            } catch (e: any) {
+              setSnackMessage(e?.message || 'Failed to update');
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // ── Announcement handlers ─────────────────────────────────────────────────
+
+  const handleSaveAnnouncement = async () => {
+    if (!announcementText.trim()) return;
+    setAnnouncementSaving(true);
+    try {
+      const saved = await clubAnnouncementsApi.set(clubId, announcementText.trim(), token!);
+      setAnnouncement(saved);
+      setAnnouncementModalVisible(false);
+      setSnackMessage('Announcement updated.');
+    } catch (e: any) {
+      setSnackMessage(e?.message || 'Failed to save announcement');
+    } finally {
+      setAnnouncementSaving(false);
+    }
+  };
+
+  const handleDeleteAnnouncement = () => {
+    Alert.alert('Delete Announcement?', 'Remove the pinned announcement for this club?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          try {
+            await clubAnnouncementsApi.delete(clubId, token!);
+            setAnnouncement(null);
+            setPoll(null);
+          } catch (e: any) {
+            setSnackMessage(e?.message || 'Failed to delete announcement');
+          }
+        },
+      },
+    ]);
+  };
+
+  // ── Poll handlers ─────────────────────────────────────────────────────────
+
+  const handleCreatePoll = async () => {
+    const question = pollQuestion.trim();
+    const opts = pollOptions.map(o => o.trim()).filter(Boolean);
+    if (!question || opts.length < 2) {
+      setSnackMessage('Enter a question and at least 2 options.');
+      return;
+    }
+    try {
+      const created = await clubPollsApi.create(clubId, question, opts, token!);
+      setPoll(created);
+      setPollModalVisible(false);
+      setPollQuestion('');
+      setPollOptions(['', '']);
+      setSnackMessage('Poll created!');
+    } catch (e: any) {
+      setSnackMessage(e?.message || 'Failed to create poll');
+    }
+  };
+
+  const handleVote = async (pollId: number, optionId: number) => {
+    try {
+      const updated = await clubPollsApi.vote(pollId, optionId, token!);
+      setPoll(updated);
+    } catch (e: any) {
+      setSnackMessage(e?.message || 'Failed to vote');
+    }
+  };
+
+  const handleClosePoll = () => {
+    if (!poll) return;
+    Alert.alert('Close Poll?', 'No new votes will be accepted after closing.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Close', onPress: async () => {
+          try {
+            const updated = await clubPollsApi.close(poll.pollId, token!);
+            setPoll(updated);
+          } catch (e: any) {
+            setSnackMessage(e?.message || 'Failed to close poll');
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleDeletePoll = () => {
+    if (!poll) return;
+    Alert.alert('Delete Poll?', 'This will permanently remove the poll and all votes.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete', style: 'destructive', onPress: async () => {
+          try {
+            await clubPollsApi.delete(poll.pollId, token!);
+            setPoll(null);
+          } catch (e: any) {
+            setSnackMessage(e?.message || 'Failed to delete poll');
+          }
+        },
+      },
+    ]);
   };
 
   const handleSetEndDate = async (item: BookClubItemResponse, endDate: string) => {
@@ -607,7 +805,7 @@ export default function ClubHubScreen() {
 
   const handleUpdateRole = (member: BookClubMemberResponse, newRole: 'MODERATOR' | 'MEMBER') => {
     const label = newRole === 'MODERATOR' ? 'Promote to Moderator' : 'Demote to Member';
-    Alert.alert(label, `Promote member @${member.username} to Moderator?`, [
+    Alert.alert(label, `@${member.username}: ${label}?`, [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Confirm', onPress: async () => {
@@ -782,6 +980,108 @@ export default function ClubHubScreen() {
             <>
               <Divider style={{ marginVertical: 8 }} />
 
+              {/* Announcements + Poll */}
+              {(announcement || canManage) ? (
+                <>
+                  <View style={styles.section}>
+                    <View style={styles.sectionHeader}>
+                      <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
+                        Announcements
+                      </Text>
+                      {canManage ? (
+                        <View style={{ flexDirection: 'row', gap: 14 }}>
+                          <Pressable onPress={() => { setAnnouncementText(announcement?.content ?? ''); setAnnouncementModalVisible(true); }}>
+                            <Text style={{ color: theme.colors.primary, fontWeight: '700' }}>
+                              {announcement ? 'Edit' : '+ Add'}
+                            </Text>
+                          </Pressable>
+                          {announcement ? (
+                            <Pressable onPress={handleDeleteAnnouncement}>
+                              <Text style={{ color: theme.colors.error, fontWeight: '700' }}>Delete</Text>
+                            </Pressable>
+                          ) : null}
+                        </View>
+                      ) : null}
+                    </View>
+
+                    {announcement ? (
+                      <View style={[styles.announcementBox, { backgroundColor: theme.colors.surface }]}>
+                        <Text style={{ color: theme.colors.onSurface, fontSize: 14, lineHeight: 20 }}>
+                          {announcement.content}
+                        </Text>
+                        <Text style={{ color: theme.colors.onSurface, opacity: 0.5, fontSize: 11, marginTop: 6 }}>
+                          — @{announcement.authorUsername} · {new Date(announcement.updatedAt).toLocaleDateString()}
+                        </Text>
+                      </View>
+                    ) : (
+                      <Text style={{ color: theme.colors.onSurface, opacity: 0.5 }}>
+                        No announcement yet. Tap + Add to pin a message.
+                      </Text>
+                    )}
+
+                    {/* Poll */}
+                    {poll ? (
+                      <View style={[styles.pollBox, { backgroundColor: theme.colors.surface }]}>
+                        <Text style={{ color: theme.colors.onSurface, fontWeight: '700', fontSize: 13, marginBottom: 6 }}>
+                          {poll.active ? '📊 Poll' : '📊 Poll (Closed)'}
+                        </Text>
+                        <Text style={{ color: theme.colors.onSurface, fontSize: 14, marginBottom: 10 }}>
+                          {poll.question}
+                        </Text>
+                        {(poll.options ?? []).map(opt => {
+                          const totalVotes = poll.options.reduce((sum, o) => sum + o.voteCount, 0);
+                          const pct = totalVotes > 0 ? Math.round((opt.voteCount / totalVotes) * 100) : 0;
+                          const isUserVote = poll.userVotedOptionId === opt.optionId;
+                          const hasVoted = poll.userVotedOptionId !== null;
+                          const maxVotes = Math.max(...poll.options.map(o => o.voteCount));
+                          const isWinner = !poll.active && totalVotes > 0 && opt.voteCount === maxVotes;
+                          return (
+                            <Pressable
+                              key={opt.optionId}
+                              disabled={hasVoted || !poll.active}
+                              onPress={() => handleVote(poll.pollId, opt.optionId)}
+                              style={[
+                                styles.pollOption,
+                                {
+                                  borderColor: isWinner ? '#22c55e' : isUserVote ? theme.colors.primary : theme.colors.outlineVariant,
+                                  backgroundColor: isWinner ? '#dcfce7' : isUserVote ? theme.colors.primaryContainer : 'transparent',
+                                },
+                              ]}
+                            >
+                              <Text style={{ color: isWinner ? '#15803d' : theme.colors.onSurface, fontSize: 13, flex: 1, fontWeight: isWinner ? '700' : '400' }}>
+                                {opt.optionText}
+                              </Text>
+                              {(hasVoted || !poll.active) ? (
+                                <Text style={{ color: isWinner ? '#15803d' : theme.colors.onSurface, opacity: isWinner ? 1 : 0.6, fontSize: 12 }}>
+                                  {pct}% ({opt.voteCount})
+                                </Text>
+                              ) : null}
+                            </Pressable>
+                          );
+                        })}
+                        {canManage ? (
+                          <View style={{ flexDirection: 'row', gap: 14, marginTop: 8 }}>
+                            {poll.active ? (
+                              <Pressable onPress={handleClosePoll}>
+                                <Text style={{ color: theme.colors.primary, fontSize: 12 }}>Close Poll</Text>
+                              </Pressable>
+                            ) : null}
+                            <Pressable onPress={handleDeletePoll}>
+                              <Text style={{ color: theme.colors.error, fontSize: 12 }}>Delete Poll</Text>
+                            </Pressable>
+                          </View>
+                        ) : null}
+                      </View>
+                    ) : canManage ? (
+                      <Pressable onPress={() => { setPollQuestion(''); setPollOptions(['', '']); setPollModalVisible(true); }} style={{ marginTop: 10 }}>
+                        <Text style={{ color: theme.colors.primary, fontSize: 13, fontWeight: '700' }}>+ Create Poll</Text>
+                      </Pressable>
+                    ) : null}
+                  </View>
+                  <Divider style={{ marginVertical: 8 }} />
+                </>
+              ) : null}
+
               {/* Currently Reading */}
               <View style={styles.section}>
                 <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
@@ -793,6 +1093,7 @@ export default function ClubHubScreen() {
                     canManage={canManage}
                     onRemove={() => handleRemoveItem(activeItem)}
                     onEditEndDate={() => setEditDateState({ item: activeItem, field: 'endDate' })}
+                    onMoveToUpcoming={handleMoveToUpcoming}
                     theme={theme}
                   />
                 ) : (
@@ -934,8 +1235,8 @@ export default function ClubHubScreen() {
 
               <Divider style={{ marginVertical: 8 }} />
 
-              {/* Owner Management Panel */}
-              {isOwner ? (
+              {/* Management Panel — owners and moderators */}
+              {canManage ? (
                 <View style={styles.section}>
                   <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
                     Manage Club
@@ -950,15 +1251,25 @@ export default function ClubHubScreen() {
                   </Button>
                   <Button
                     mode="outlined"
-                    onPress={handleDeleteClub}
-                    loading={actionLoading}
-                    disabled={actionLoading}
-                    textColor={theme.colors.error}
-                    style={{ borderColor: theme.colors.error, marginBottom: 10 }}
-                    icon="delete"
+                    onPress={handleOpenEditClub}
+                    style={{ marginBottom: 10 }}
+                    icon="pencil"
                   >
-                    Delete Club
+                    Edit Club
                   </Button>
+                  {isOwner ? (
+                    <Button
+                      mode="outlined"
+                      onPress={handleDeleteClub}
+                      loading={actionLoading}
+                      disabled={actionLoading}
+                      textColor={theme.colors.error}
+                      style={{ borderColor: theme.colors.error, marginBottom: 10 }}
+                      icon="delete"
+                    >
+                      Delete Club
+                    </Button>
+                  ) : null}
                 </View>
               ) : null}
 
@@ -1014,6 +1325,136 @@ export default function ClubHubScreen() {
         onClose={() => setEditDateState(null)}
       />
 
+      {/* Edit club modal */}
+      <Portal>
+        <Modal
+          visible={editClubModalVisible}
+          onDismiss={() => setEditClubModalVisible(false)}
+          contentContainerStyle={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}
+        >
+          <Text variant="titleMedium" style={{ color: theme.colors.onSurface, fontWeight: '700', marginBottom: 14 }}>
+            Edit Club
+          </Text>
+          <TextInput
+            label="Club Name"
+            value={editClubName}
+            onChangeText={setEditClubName}
+            mode="outlined"
+            style={{ marginBottom: 12 }}
+          />
+          <TextInput
+            label="Description (optional)"
+            value={editClubDescription}
+            onChangeText={setEditClubDescription}
+            mode="outlined"
+            multiline
+            numberOfLines={3}
+            style={{ marginBottom: 12 }}
+          />
+          <Pressable
+            onPress={() => setEditClubPrivacy(p => !p)}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20 }}
+          >
+            <View style={{
+              width: 22, height: 22, borderRadius: 4, borderWidth: 2,
+              borderColor: theme.colors.primary,
+              backgroundColor: editClubPrivacy ? theme.colors.primary : 'transparent',
+              alignItems: 'center', justifyContent: 'center',
+            }}>
+              {editClubPrivacy ? <Text style={{ color: theme.colors.onPrimary, fontSize: 13, fontWeight: '700' }}>✓</Text> : null}
+            </View>
+            <Text style={{ color: theme.colors.onSurface }}>Private club</Text>
+          </Pressable>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Button mode="outlined" onPress={() => setEditClubModalVisible(false)} style={{ flex: 1 }} disabled={editClubSaving}>
+              Cancel
+            </Button>
+            <Button mode="contained" onPress={handleSaveEditClub} style={{ flex: 1 }} loading={editClubSaving} disabled={editClubSaving || !editClubName.trim()}>
+              Save
+            </Button>
+          </View>
+        </Modal>
+      </Portal>
+
+      {/* Announcement edit modal */}
+      <Portal>
+        <Modal
+          visible={announcementModalVisible}
+          onDismiss={() => setAnnouncementModalVisible(false)}
+          contentContainerStyle={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}
+        >
+          <Text variant="titleMedium" style={{ color: theme.colors.onSurface, fontWeight: '700', marginBottom: 14 }}>
+            {announcement ? 'Edit Announcement' : 'Add Announcement'}
+          </Text>
+          <TextInput
+            label="Announcement"
+            value={announcementText}
+            onChangeText={setAnnouncementText}
+            mode="outlined"
+            multiline
+            numberOfLines={4}
+            style={{ marginBottom: 16 }}
+          />
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Button mode="outlined" onPress={() => setAnnouncementModalVisible(false)} style={{ flex: 1 }} disabled={announcementSaving}>
+              Cancel
+            </Button>
+            <Button mode="contained" onPress={handleSaveAnnouncement} style={{ flex: 1 }} loading={announcementSaving} disabled={announcementSaving || !announcementText.trim()}>
+              Save
+            </Button>
+          </View>
+        </Modal>
+      </Portal>
+
+      {/* Poll creation modal */}
+      <Portal>
+        <Modal
+          visible={pollModalVisible}
+          onDismiss={() => setPollModalVisible(false)}
+          contentContainerStyle={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}
+        >
+          <Text variant="titleMedium" style={{ color: theme.colors.onSurface, fontWeight: '700', marginBottom: 14 }}>
+            Create Poll
+          </Text>
+          <TextInput
+            label="Question"
+            value={pollQuestion}
+            onChangeText={setPollQuestion}
+            mode="outlined"
+            style={{ marginBottom: 12 }}
+          />
+          {pollOptions.map((opt, idx) => (
+            <View key={idx} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+              <TextInput
+                label={`Option ${idx + 1}`}
+                value={opt}
+                onChangeText={val => setPollOptions(prev => prev.map((o, i) => i === idx ? val : o))}
+                mode="outlined"
+                style={{ flex: 1 }}
+              />
+              {pollOptions.length > 2 ? (
+                <Pressable onPress={() => setPollOptions(prev => prev.filter((_, i) => i !== idx))}>
+                  <Text style={{ color: theme.colors.error, fontSize: 20, paddingHorizontal: 4 }}>✕</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          ))}
+          {pollOptions.length < 10 ? (
+            <Pressable onPress={() => setPollOptions(prev => [...prev, ''])} style={{ marginBottom: 16 }}>
+              <Text style={{ color: theme.colors.primary, fontSize: 13 }}>+ Add Option</Text>
+            </Pressable>
+          ) : null}
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            <Button mode="outlined" onPress={() => setPollModalVisible(false)} style={{ flex: 1 }}>
+              Cancel
+            </Button>
+            <Button mode="contained" onPress={handleCreatePoll} style={{ flex: 1 }}>
+              Create
+            </Button>
+          </View>
+        </Modal>
+      </Portal>
+
       <Portal>
         <Snackbar visible={snackMessage !== null} onDismiss={() => setSnackMessage(null)} duration={2500}>
           {snackMessage}
@@ -1030,12 +1471,14 @@ function CurrentReadCard({
   canManage,
   onRemove,
   onEditEndDate,
+  onMoveToUpcoming,
   theme,
 }: {
   item: BookClubItemResponse;
   canManage: boolean;
   onRemove: () => void;
   onEditEndDate: () => void;
+  onMoveToUpcoming: () => void;
   theme: any;
 }) {
   const bookId = item.bookId.replace('/works/', '');
@@ -1068,6 +1511,9 @@ function CurrentReadCard({
       </View>
       {canManage ? (
         <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 16, marginTop: 8 }}>
+          <Pressable onPress={onMoveToUpcoming}>
+            <Text style={{ color: theme.colors.primary, fontSize: 12 }}>Move to Upcoming</Text>
+          </Pressable>
           <Pressable onPress={onEditEndDate}>
             <Text style={{ color: theme.colors.primary, fontSize: 12 }}>
               {item.endDate ? 'Edit End Date' : 'Set End Date'}
@@ -1196,6 +1642,17 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   upcomingCover: { width: 50, height: 70, borderRadius: 6, flexShrink: 0 },
+  // Announcement + Poll
+  announcementBox: { borderRadius: 10, padding: 14, marginBottom: 12 },
+  pollBox: { borderRadius: 10, padding: 14, marginTop: 4 },
+  pollOption: {
+    borderWidth: 1,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   // Add book modal
   modalContainer: { margin: 16, borderRadius: 16, padding: 20 },
   searchResultRow: {

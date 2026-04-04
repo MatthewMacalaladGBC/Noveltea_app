@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import com.noveltea.backend.model.ReviewLike;
 import com.noveltea.backend.repository.ReviewLikeRepository;
-import com.noveltea.backend.service.GamificationService;
 import java.util.ArrayList;
 import java.util.List;
 

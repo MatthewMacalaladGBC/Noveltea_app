@@ -78,13 +78,16 @@ async function request<T>(
     clearTimeout(timeoutId);
   }
 
-  // Attempt to parse JSON — fall back gracefully if the body isn't JSON
-  const body = await response.json().catch(() => ({
-    message: `Server error (${response.status})`,
-  }));
+  // Attempt to parse JSON — null for empty bodies (e.g. 204 No Content)
+  let body: any = null;
+  try {
+    body = await response.json();
+  } catch {
+    // empty body — body stays null
+  }
 
   if (!response.ok) {
-    throw new Error(body.message ?? `Request failed with status ${response.status}`);
+    throw new Error(body?.message ?? `Request failed with status ${response.status}`);
   }
 
   return body as T;
@@ -445,6 +448,79 @@ export const clubItemsApi = {
 
   removeBook: (clubItemId: number, token: string) =>
     request<void>(`/club-items/${clubItemId}`, { method: 'DELETE', token }),
+};
+
+// ---------------------------------------------------------------------------
+// Club Announcement types + endpoints
+// ---------------------------------------------------------------------------
+
+export interface ClubAnnouncementResponse {
+  announcementId: number;
+  clubId: number;
+  authorUsername: string;
+  content: string;
+  updatedAt: string; // ISO datetime
+}
+
+export const clubAnnouncementsApi = {
+  get: (clubId: number, token: string) =>
+    request<ClubAnnouncementResponse>(`/clubs/${clubId}/announcement`, { token }),
+
+  set: (clubId: number, content: string, token: string) =>
+    request<ClubAnnouncementResponse>(`/clubs/${clubId}/announcement`, {
+      method: 'PUT',
+      token,
+      body: JSON.stringify({ content }),
+    }),
+
+  delete: (clubId: number, token: string) =>
+    request<void>(`/clubs/${clubId}/announcement`, { method: 'DELETE', token }),
+};
+
+// ---------------------------------------------------------------------------
+// Club Poll types + endpoints
+// ---------------------------------------------------------------------------
+
+export interface ClubPollOptionResponse {
+  optionId: number;
+  optionText: string;
+  voteCount: number;
+}
+
+export interface ClubPollResponse {
+  pollId: number;
+  clubId: number;
+  question: string;
+  active: boolean;
+  createdAt: string; // ISO datetime
+  createdByUsername: string;
+  options: ClubPollOptionResponse[];
+  userVotedOptionId: number | null;
+}
+
+export const clubPollsApi = {
+  getActive: (clubId: number, token: string) =>
+    request<ClubPollResponse>(`/clubs/${clubId}/poll/active`, { token }),
+
+  create: (clubId: number, question: string, options: string[], token: string) =>
+    request<ClubPollResponse>(`/clubs/${clubId}/poll`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ question, options }),
+    }),
+
+  vote: (pollId: number, optionId: number, token: string) =>
+    request<ClubPollResponse>(`/polls/${pollId}/vote`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ optionId }),
+    }),
+
+  close: (pollId: number, token: string) =>
+    request<ClubPollResponse>(`/polls/${pollId}/close`, { method: 'POST', token }),
+
+  delete: (pollId: number, token: string) =>
+    request<void>(`/polls/${pollId}`, { method: 'DELETE', token }),
 };
 
 // ---------------------------------------------------------------------------

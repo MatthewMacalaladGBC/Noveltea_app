@@ -1,9 +1,9 @@
 import { reviewsApi, usersApi } from '@/src/api/client';
 import { useAuth } from '@/src/context/AuthContext';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Card, Text, useTheme } from 'react-native-paper';
+import { Appbar, Card, Text, useTheme } from 'react-native-paper';
 
 function milestone(done: boolean, title: string, subtitle: string) {
   return {
@@ -86,6 +86,10 @@ export default function AchievementsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
+      <Appbar.Header style={{ backgroundColor: theme.colors.background }}>
+        <Appbar.BackAction onPress={() => router.back()} />
+        <Appbar.Content title="Achievements" />
+      </Appbar.Header>
       <ScrollView contentContainerStyle={styles.content}>
         <Text variant="headlineSmall" style={styles.title}>
           🏆 Progress

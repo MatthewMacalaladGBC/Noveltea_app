@@ -39,6 +39,7 @@ function RootLayoutContent() {
           <Stack.Screen name="follows/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="user-reviews/[username]" options={{ headerShown: false }} />
           <Stack.Screen name="club/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="achievements" options={{ headerShown: false }} />
           <Stack.Screen name="category/[genre]" options={{ headerShown: false }} />
           <Stack.Screen name="auth/welcome" options={{ headerShown: false }} />
           <Stack.Screen name="auth/login" options={{ headerShown: false }} />

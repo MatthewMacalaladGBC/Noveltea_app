@@ -106,16 +106,24 @@ public class BookClubItemService {
 
         if (request.getStatus() != null) {
             if (request.getStatus() == BookClubItemStatus.ACTIVE) {
-                // Auto-complete the currently active item (if any)
+                // Auto-complete the currently active item (if any) — only if it's a different item
                 bookClubItemRepository.findFirstByBookClubAndStatus(bookClub, BookClubItemStatus.ACTIVE)
+                        .filter(current -> !current.getClubItemId().equals(clubItemId))
                         .ifPresent(current -> {
                             current.setStatus(BookClubItemStatus.COMPLETED);
+                            if (current.getEndDate() == null) {
+                                current.setEndDate(LocalDate.now());
+                            }
                             bookClubItemRepository.save(current);
                         });
                 // Auto-set startDate if not explicitly provided
                 bookClubItem.setStartDate(
                         request.getStartDate() != null ? request.getStartDate() : LocalDate.now()
                 );
+            } else if (request.getStatus() == BookClubItemStatus.UPCOMING
+                    && bookClubItem.getStatus() == BookClubItemStatus.ACTIVE) {
+                // Reverting active → upcoming: clear startDate so it can be set fresh
+                bookClubItem.setStartDate(null);
             }
             bookClubItem.setStatus(request.getStatus());
         }
