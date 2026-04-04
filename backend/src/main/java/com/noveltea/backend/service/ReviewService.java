@@ -20,4 +20,8 @@ public interface ReviewService {
 
     // Own profile: returns all reviews; other users / guests: public only
     List<ReviewDto.Response> getByUserId(Long requesterId, Long targetUserId);
+
+    ReviewDto.Response likeReview(Long userId, Long reviewId);
+
+    ReviewDto.Response unlikeReview(Long userId, Long reviewId);
 }

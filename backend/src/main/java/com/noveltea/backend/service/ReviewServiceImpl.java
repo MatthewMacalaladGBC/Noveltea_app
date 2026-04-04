@@ -11,7 +11,8 @@ import com.noveltea.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.noveltea.backend.model.ReviewLike;
+import com.noveltea.backend.repository.ReviewLikeRepository;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,6 +23,7 @@ public class ReviewServiceImpl implements ReviewService {
     private final ReviewRepository reviewRepository;
     private final UserRepository userRepository;
     private final BookService bookService;
+    private final ReviewLikeRepository reviewLikeRepository;
 
     // ---------------- CREATE ----------------
 
@@ -56,7 +58,7 @@ public class ReviewServiceImpl implements ReviewService {
         // rating recalc after create
         bookService.recalculateRating(book.getBookId());
 
-        return toResponse(saved);
+        return toResponse(saved, userId);
     }
 
     // ---------------- PUBLIC VIEW ----------------
@@ -80,8 +82,8 @@ public class ReviewServiceImpl implements ReviewService {
         }
 
         return results.stream()
-                .map(this::toResponse)
-                .toList();
+            .map(review -> toResponse(review, userIdOrNull))
+            .toList();
     }
 
     // ---------------- UPDATE ----------------
@@ -116,7 +118,7 @@ public class ReviewServiceImpl implements ReviewService {
             bookService.recalculateRating(saved.getBook().getBookId());
         }
 
-        return toResponse(saved);
+        return toResponse(saved, userId);
     }
 
     // ---------------- DELETE ----------------
@@ -163,20 +165,89 @@ public class ReviewServiceImpl implements ReviewService {
 
     // ---------------- DTO MAPPING ----------------
 
-    private ReviewDto.Response toResponse(Review r) {
-        return ReviewDto.Response.builder()
-                .reviewId(r.getReviewId())
-                .userId(r.getUser().getUserId())
-                .username(r.getUser().getUsername())
-                .bookId(r.getBook().getBookId())
-                .bookTitle(r.getBook().getTitle())
-                .bookAuthor(r.getBook().getAuthor())
-                .coverImageUrl(r.getBook().getCoverImageUrl())
-                .rating(r.getRating())
-                .reviewText(r.getReviewText())
-                .likes(r.getLikes())
-                .visibility(r.getVisibility())
-                .creationDate(r.getCreationDate())
+    private ReviewDto.Response toResponse(Review r, Long currentUserId) {
+    boolean likedByCurrentUser = false;
+
+    if (currentUserId != null) {
+        likedByCurrentUser = reviewLikeRepository.existsByUser_UserIdAndReview_ReviewId(
+                currentUserId,
+                r.getReviewId()
+        );
+    }
+
+    return ReviewDto.Response.builder()
+            .reviewId(r.getReviewId())
+            .userId(r.getUser().getUserId())
+            .username(r.getUser().getUsername())
+            .bookId(r.getBook().getBookId())
+            .bookTitle(r.getBook().getTitle())
+            .bookAuthor(r.getBook().getAuthor())
+            .coverImageUrl(r.getBook().getCoverImageUrl())
+            .rating(r.getRating())
+            .reviewText(r.getReviewText())
+            .likes(r.getLikes())
+            .likedByCurrentUser(likedByCurrentUser)
+            .visibility(r.getVisibility())
+            .creationDate(r.getCreationDate())
+            .build();
+}
+
+        // ---------------- Like and Unlike Reviews ----------------
+
+    @Override
+    @Transactional
+    public ReviewDto.Response likeReview(Long userId, Long reviewId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found: " + reviewId));
+
+        if (review.getUser().getUserId().equals(userId)) {
+            throw new ForbiddenException("You cannot like your own review");
+        }
+
+        if (Boolean.FALSE.equals(review.getVisibility())) {
+            throw new ForbiddenException("This review cannot be liked");
+        }
+
+        boolean alreadyLiked = reviewLikeRepository.existsByUserAndReview(user, review);
+        if (alreadyLiked) {
+            return toResponse(review, userId);
+        }
+
+        ReviewLike reviewLike = ReviewLike.builder()
+                .user(user)
+                .review(review)
                 .build();
+
+        reviewLikeRepository.save(reviewLike);
+
+        review.setLikes((int) reviewLikeRepository.countByReview(review));
+        Review savedReview = reviewRepository.save(review);
+
+        return toResponse(savedReview, userId); 
+    }
+
+    @Override
+    @Transactional
+    public ReviewDto.Response unlikeReview(Long userId, Long reviewId) {
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+
+        Review review = reviewRepository.findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Review not found: " + reviewId));
+
+        ReviewLike reviewLike = reviewLikeRepository.findByUserAndReview(user, review)
+                .orElseThrow(() -> new ResourceNotFoundException("Like not found for this review"));
+
+        reviewLikeRepository.delete(reviewLike);
+
+        review.setLikes((int) reviewLikeRepository.countByReview(review));
+        Review savedReview = reviewRepository.save(review);
+
+        return toResponse(savedReview, userId);
     }
 }

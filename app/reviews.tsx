@@ -6,6 +6,8 @@ import {
   createReview,
   deleteReview,
   getReviewsByBook,
+  likeReview,
+  unlikeReview,
   updateReview,
   ReviewResponse,
 } from "@/src/lib/reviews";
@@ -226,6 +228,30 @@ export default function ReviewsScreen() {
     }
   };
 
+  const toggleLike = async (reviewId: number, likedByCurrentUser?: boolean) => {
+    if (!token) {
+      router.push("/auth/login");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (likedByCurrentUser) {
+        await unlikeReview(reviewId, token);
+      } else {
+        await likeReview(reviewId, token);
+      }
+
+      await loadReviews();
+    } catch (e: any) {
+      setError(e?.message || "Failed to update like");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <Appbar.Header style={{ backgroundColor: theme.colors.background }}>
@@ -375,6 +401,22 @@ export default function ReviewsScreen() {
                       </View>
                     </View>
                   )}
+
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
+                    <Text style={{ fontSize: 13, opacity: 0.7 }}>
+                      👍 {r.likes ?? 0}
+                    </Text>
+
+                    {!isMine ? (
+                      <Button
+                        mode={r.likedByCurrentUser ? "contained-tonal" : "outlined"}
+                        onPress={() => toggleLike(r.reviewId, r.likedByCurrentUser)}
+                        disabled={loading || !token}
+                      >
+                        {r.likedByCurrentUser ? "👍 Liked" : "👍 Like"}
+                      </Button>
+                    ) : null}
+                  </View>
 
                   <Text style={{ fontSize: 12, opacity: 0.6 }}>
                     {r.creationDate ? `Created: ${r.creationDate}` : ""}

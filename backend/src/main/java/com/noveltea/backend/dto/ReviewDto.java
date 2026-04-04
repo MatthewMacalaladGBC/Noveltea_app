@@ -79,6 +79,7 @@ public class ReviewDto {
         private BigDecimal rating;
         private String reviewText;
         private Integer likes;
+        private Boolean likedByCurrentUser;
         private Boolean visibility;
         private LocalDate creationDate;
 

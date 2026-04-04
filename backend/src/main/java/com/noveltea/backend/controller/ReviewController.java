@@ -86,4 +86,28 @@ public class ReviewController extends BaseController {
         reviewService.delete(userId, reviewId);
         return ResponseEntity.noContent().build();
     }
+
+    // POST /reviews/{reviewId}/like
+@PostMapping("/{reviewId}/like")
+public ResponseEntity<ReviewDto.Response> likeReview(
+        @PathVariable Long reviewId,
+        HttpServletRequest httpRequest
+) {
+    Long userId = getUserId(httpRequest);
+    if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+    return ResponseEntity.ok(reviewService.likeReview(userId, reviewId));
+}
+
+// DELETE /reviews/{reviewId}/like
+@DeleteMapping("/{reviewId}/like")
+public ResponseEntity<ReviewDto.Response> unlikeReview(
+        @PathVariable Long reviewId,
+        HttpServletRequest httpRequest
+) {
+    Long userId = getUserId(httpRequest);
+    if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+    return ResponseEntity.ok(reviewService.unlikeReview(userId, reviewId));
+}
 }
