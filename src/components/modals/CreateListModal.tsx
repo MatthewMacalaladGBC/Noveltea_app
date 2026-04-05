@@ -122,11 +122,15 @@ export default function CreateListModal({ visible, onClose, onCreated, token }: 
                 styles.visibilityBtn,
                 visibility
                   ? { backgroundColor: theme.colors.primary }
-                  : { borderColor: theme.colors.outline, borderWidth: 1 },
+                  : {
+                      backgroundColor: theme.colors.surface,
+                      borderColor: theme.colors.outline,
+                      borderWidth: 1,
+                    },
               ]}
               onPress={() => setVisibility(true)}
             >
-              <Text style={[styles.visibilityBtnText, { color: visibility ? '#FFFFFF' : theme.colors.onSurface + '80' }]}>
+              <Text style={[styles.visibilityBtnText, { color: visibility ? theme.colors.onPrimary : theme.colors.onSurface }]}>
                 Visible
               </Text>
             </Pressable>
@@ -137,11 +141,15 @@ export default function CreateListModal({ visible, onClose, onCreated, token }: 
                 styles.visibilityBtn,
                 !visibility
                   ? { backgroundColor: theme.colors.primary }
-                  : { borderColor: theme.colors.outline, borderWidth: 1 },
-              ]}
+                : {
+                    backgroundColor: theme.colors.surface,
+                    borderColor: theme.colors.outline,
+                    borderWidth: 1,
+                  },
+                ]}
               onPress={() => setVisibility(false)}
             >
-              <Text style={[styles.visibilityBtnText, { color: !visibility ? '#FFFFFF' : theme.colors.onSurface + '80' }]}>
+              <Text style={[styles.visibilityBtnText, { color: !visibility ? theme.colors.onPrimary : theme.colors.onSurface }]}>
                 Hidden
               </Text>
             </Pressable>

@@ -31,35 +31,23 @@ export default function AchievementsScreen() {
 
         try {
           const profile = await authApi.me(token);
-          if (!cancelled) {
-            setFreshUser(profile);
-          }
+          if (!cancelled) setFreshUser(profile);
         } catch {
-          if (!cancelled) {
-            setFreshUser(null);
-          }
+          if (!cancelled) setFreshUser(null);
         }
 
         try {
           const count = await reviewsApi.getMyCount(token);
-          if (!cancelled) {
-            setReviewCount(typeof count === 'number' ? count : 0);
-          }
+          if (!cancelled) setReviewCount(typeof count === 'number' ? count : 0);
         } catch {
-          if (!cancelled) {
-            setReviewCount(0);
-          }
+          if (!cancelled) setReviewCount(0);
         }
 
         try {
           const leaderboardData = await usersApi.getLeaderboard(token);
-          if (!cancelled) {
-            setLeaderboard(leaderboardData.slice(0, 10));
-          }
+          if (!cancelled) setLeaderboard(leaderboardData.slice(0, 10));
         } catch {
-          if (!cancelled) {
-            setLeaderboard([]);
-          }
+          if (!cancelled) setLeaderboard([]);
         }
       }
 
@@ -96,58 +84,102 @@ export default function AchievementsScreen() {
       </Appbar.Header>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <Card style={[styles.card, { backgroundColor: '#F3F3F3' }]}>
+        <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Content>
-            <Text variant="titleMedium">Your Progress</Text>
-            <Text style={styles.value}>{completedCount}/{totalCount} achievements unlocked</Text>
-            <Text style={styles.value}>⭐ Points: {points}</Text>
-            <Text style={styles.value}>👍 Likes received: {likesReceived}</Text>
-            <Text style={styles.value}>📝 Reviews: {reviewCount}</Text>
+            <Text
+              variant="titleMedium"
+              style={[styles.cardTitle, { color: theme.colors.onSurface }]}
+            >
+              Your Progress
+            </Text>
+            <Text style={[styles.cardText, { color: theme.colors.onSurfaceVariant }]}>
+              {completedCount}/{totalCount} achievements unlocked
+            </Text>
+            <Text style={[styles.value, { color: theme.colors.onSurface }]}>
+              ⭐ Points: {points}
+            </Text>
+            <Text style={[styles.value, { color: theme.colors.onSurface }]}>
+              👍 Likes received: {likesReceived}
+            </Text>
+            <Text style={[styles.value, { color: theme.colors.onSurface }]}>
+              📝 Reviews: {reviewCount}
+            </Text>
           </Card.Content>
         </Card>
 
-        <Card style={[styles.card, { backgroundColor: '#F3F3F3' }]}>
+        <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Content>
-            <Text variant="titleMedium">Reading Milestones</Text>
+            <Text
+              variant="titleMedium"
+              style={[styles.cardTitle, { color: theme.colors.onSurface }]}
+            >
+              Reading Milestones
+            </Text>
 
             {achievementItems.map((item, index) => (
               <View key={index} style={styles.achievementRow}>
-                <Text style={styles.item}>
+                <Text style={[styles.item, { color: theme.colors.onSurface }]}>
                   {item.icon} {item.title}
                 </Text>
-                <Text style={styles.sub}>{item.subtitle}</Text>
+                <Text style={[styles.sub, { color: theme.colors.onSurfaceVariant }]}>
+                  {item.subtitle}
+                </Text>
               </View>
             ))}
           </Card.Content>
         </Card>
 
-        <Card style={[styles.card, { backgroundColor: '#F3F3F3' }]}>
+        <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Content>
-            <Text variant="titleMedium">Daily & Weekly Progress</Text>
+            <Text
+              variant="titleMedium"
+              style={[styles.cardTitle, { color: theme.colors.onSurface }]}
+            >
+              Daily & Weekly Progress
+            </Text>
 
-            <Text style={styles.item}>🔥 Streak</Text>
-            <Text style={styles.sub}>{currentStreak} day{currentStreak === 1 ? '' : 's'} in a row</Text>
+            <Text style={[styles.item, { color: theme.colors.onSurface }]}>
+              🔥 Streak
+            </Text>
+            <Text style={[styles.sub, { color: theme.colors.onSurfaceVariant }]}>
+              {currentStreak} day{currentStreak === 1 ? '' : 's'} in a row
+            </Text>
 
-            <Text style={styles.item}>🏆 Best Streak</Text>
-            <Text style={styles.sub}>{longestStreak} day{longestStreak === 1 ? '' : 's'} longest streak</Text>
+            <Text style={[styles.item, styles.sectionGap, { color: theme.colors.onSurface }]}>
+              🏆 Best Streak
+            </Text>
+            <Text style={[styles.sub, { color: theme.colors.onSurfaceVariant }]}>
+              {longestStreak} day{longestStreak === 1 ? '' : 's'} longest streak
+            </Text>
           </Card.Content>
         </Card>
 
-        <Card style={[styles.card, { backgroundColor: '#F3F3F3' }]}>
+        <Card style={[styles.card, { backgroundColor: theme.colors.surface }]}>
           <Card.Content>
-            <Text variant="titleMedium">🏅 Leaderboard</Text>
+            <Text
+              variant="titleMedium"
+              style={[styles.cardTitle, { color: theme.colors.onSurface }]}
+            >
+              🏅 Leaderboard
+            </Text>
 
             {leaderboard.length === 0 ? (
-              <Text style={styles.sub}>No leaderboard data yet</Text>
+              <Text style={[styles.sub, { color: theme.colors.onSurfaceVariant }]}>
+                No leaderboard data yet
+              </Text>
             ) : (
               leaderboard.map((item, index) => (
                 <View key={item.userId} style={styles.leaderboardRow}>
-                  <Text style={styles.rank}>#{index + 1}</Text>
-                  <Text style={styles.username}>
+                  <Text style={[styles.rank, { color: theme.colors.onSurface }]}>
+                    #{index + 1}
+                  </Text>
+                  <Text style={[styles.username, { color: theme.colors.onSurface }]}>
                     {item.username}
                     {item.username === user?.username ? ' (You)' : ''}
                   </Text>
-                  <Text style={styles.points}>{item.points ?? 0} pts</Text>
+                  <Text style={[styles.points, { color: theme.colors.onSurface }]}>
+                    {item.points ?? 0} pts
+                  </Text>
                 </View>
               ))
             )}
@@ -169,6 +201,14 @@ const styles = StyleSheet.create({
   card: {
     borderRadius: 16,
   },
+  cardTitle: {
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  cardText: {
+    fontSize: 15,
+    marginTop: 4,
+  },
   value: {
     marginTop: 8,
     fontSize: 16,
@@ -182,7 +222,10 @@ const styles = StyleSheet.create({
   },
   sub: {
     marginTop: 2,
-    opacity: 0.7,
+    fontSize: 14,
+  },
+  sectionGap: {
+    marginTop: 12,
   },
   leaderboardRow: {
     flexDirection: 'row',

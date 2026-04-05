@@ -715,7 +715,7 @@ export default function BookDetailsScreen() {
                   {libraryLoading ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Text style={styles.libraryButtonText}>
+                    <Text style={[styles.libraryButtonText, { color: theme.colors.onPrimary }]}>
                       {inLibrary ? "✓ In Library" : "Add to Library"}
                     </Text>
                   )}
@@ -746,7 +746,9 @@ export default function BookDetailsScreen() {
                   { backgroundColor: theme.colors.onBackground },
                 ]}
               >
-                <Text style={styles.libraryButtonText}>Sign in to save</Text>
+                <Text style={[styles.libraryButtonText, { color: theme.colors.onPrimary }]}>
+                  Sign in to save
+                </Text>
               </Pressable>
             )}
 
@@ -768,7 +770,14 @@ export default function BookDetailsScreen() {
                 { backgroundColor: theme.colors.primary },
               ]}
             >
-              <Text style={styles.libraryButtonText}>See Reviews</Text>
+              <Text
+                style={[
+                  styles.libraryButtonText,
+                  { color: theme.colors.onPrimary },
+                ]}
+            >
+                See Reviews
+              </Text>
             </Pressable>
 
             <View
