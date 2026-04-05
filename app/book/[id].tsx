@@ -135,7 +135,7 @@ export default function BookDetailsScreen() {
       if (libraryList) {
         setLibraryListId(libraryList.listId);
         const items = await listsApi.getListItems(libraryList.listId, token);
-        const bookKey = `/works/${id}`;
+        const bookKey = (id || '').replace('/works/', '');
         const existing = items.find((item) => item.bookId === bookKey);
         if (existing) setLibraryItemId(existing.listItemId);
         else setLibraryItemId(null);
@@ -303,7 +303,7 @@ export default function BookDetailsScreen() {
         setLibraryItemId(null);
         setSnackMessage("Removed from Library");
       } else {
-        const bookKey = `/works/${id}`;
+        const bookKey = (id || '').replace('/works/', '');
         const coverForApi = getCoverUrl(book.covers, "M");
         const result = await listsApi.addToList(
           currentLibraryListId,
@@ -344,7 +344,7 @@ export default function BookDetailsScreen() {
       userLists.find((l) => l.listId === listId)?.title ?? "list";
     setAddingToListId(listId);
     try {
-      const bookKey = `/works/${id}`;
+      const bookKey = (id || '').replace('/works/', '');
       const coverForApi = getCoverUrl(book.covers, "M");
       await listsApi.addToList(
         listId,
@@ -374,7 +374,7 @@ export default function BookDetailsScreen() {
       } else {
         const result = await createReview(
           {
-            bookId: id!,
+            bookId: (id || '').replace('/works/', ''),
             title: book.title,
             author: authors,
             coverImageUrl: getCoverUrl(book.covers, "M"),

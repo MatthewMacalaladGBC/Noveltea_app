@@ -115,7 +115,7 @@ function EditDateModal({
           label="Date (YYYY-MM-DD)"
           value={value}
           onChangeText={t => { setValue(t); setError(null); }}
-          keyboardType="numeric"
+          keyboardType="numbers-and-punctuation"
           maxLength={10}
           mode="outlined"
           returnKeyType="done"
@@ -302,18 +302,22 @@ function AddBookModal({
               label="Start Date (YYYY-MM-DD) — optional"
               value={startDate}
               onChangeText={t => { setStartDate(t); setDateError(null); }}
-              keyboardType="numeric"
+              keyboardType="numbers-and-punctuation"
               maxLength={10}
               mode="outlined"
+              returnKeyType="done"
+              onSubmitEditing={Keyboard.dismiss}
               style={{ marginBottom: 10 }}
             />
             <TextInput
               label="End Date (YYYY-MM-DD) — optional"
               value={endDate}
               onChangeText={t => { setEndDate(t); setDateError(null); }}
-              keyboardType="numeric"
+              keyboardType="numbers-and-punctuation"
               maxLength={10}
               mode="outlined"
+              returnKeyType="done"
+              onSubmitEditing={Keyboard.dismiss}
               style={{ marginBottom: 4 }}
             />
 

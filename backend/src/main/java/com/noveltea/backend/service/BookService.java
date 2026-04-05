@@ -32,10 +32,22 @@ public class BookService {
     @Transactional
     public Book ensureBookExists(String bookId, String title, String author,
                                  String coverImageUrl, String description) {
-        return bookRepository.findById(bookId)
+        // Normalize: always strip the "/works/" prefix so both "OL123W" and "/works/OL123W" map to the same row
+        String normalizedId = bookId.startsWith("/works/") ? bookId.substring(7) : bookId;
+
+        return bookRepository.findById(normalizedId)
+                .map(existing -> {
+                    // Backfill cover URL if it was missing and we now have one
+                    if ((existing.getCoverImageUrl() == null || existing.getCoverImageUrl().isBlank())
+                            && coverImageUrl != null && !coverImageUrl.isBlank()) {
+                        existing.setCoverImageUrl(coverImageUrl);
+                        return bookRepository.save(existing);
+                    }
+                    return existing;
+                })
                 .orElseGet(() -> bookRepository.save(
                         Book.builder()
-                                .bookId(bookId)
+                                .bookId(normalizedId)
                                 .title(title)
                                 .author(author)
                                 .coverImageUrl(coverImageUrl)
