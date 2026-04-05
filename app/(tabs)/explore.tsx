@@ -100,18 +100,13 @@ async function isMature(isbn: string): Promise<boolean> {
   try {
     const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
     const data = await res.json();
-    if (data.totalItems > 0) {
-      return data.items[0].volumeInfo.maturityRating === 'MATURE';
-    }
+    if (data.totalItems > 0) return data.items[0].volumeInfo.maturityRating === 'MATURE';
     return false;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
 async function filterMatureBooks(books: SearchBook[], userAge: number): Promise<SearchBook[]> {
   if (userAge >= 18) return books;
-
   const results = await Promise.all(
     books.map(async (book) => {
       const isbn = book.isbn?.[0];
@@ -120,33 +115,39 @@ async function filterMatureBooks(books: SearchBook[], userAge: number): Promise<
       return mature ? null : book;
     })
   );
-
   return results.filter(Boolean) as SearchBook[];
 }
 
 export default function ExploreScreen() {
   const theme = useTheme();
   const { user } = useAuth();
-  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const { mode, query: initialQuery } = useLocalSearchParams<{ mode?: string; query?: string }>();
   const isTrendingMode = mode === 'trending';
 
   const [trendingActive, setTrendingActive] = useState(isTrendingMode);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery ?? '');
   const [results, setResults] = useState<SearchBook[]>([]);
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Guests: treat as under-18 (filter mature). Logged-in without DOB: treat as 18 (no filter).
   const userAge = !user ? 0 : (user.dateOfBirth ? calculateAge(user.dateOfBirth) : 18);
+
+  // Trigger search when arriving from home screen with a query
+  useEffect(() => {
+    if (initialQuery?.trim()) {
+      setQuery(initialQuery.trim());
+      searchBooks(initialQuery.trim());
+    }
+  }, [initialQuery]);
 
   useFocusEffect(
     useCallback(() => {
-      if (!isTrendingMode) {
+      if (!isTrendingMode && !initialQuery) {
         setTrendingActive(false);
         setResults([]);
         setQuery('');
       }
-    }, [isTrendingMode])
+    }, [isTrendingMode, initialQuery])
   );
 
   useEffect(() => {

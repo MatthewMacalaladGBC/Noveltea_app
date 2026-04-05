@@ -6,14 +6,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Image, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Button, IconButton, Searchbar, Text, useTheme } from 'react-native-paper';
 
-// Matches Open Library trending API response shape
 interface Book {
   key: string;
   title: string;
   author_name?: string[];
   cover_i?: number;
 }
-
 
 export default function HomeScreen() {
   const theme = useTheme();
@@ -54,7 +52,6 @@ export default function HomeScreen() {
 
   useEffect(() => { fetchTrending(); }, []);
 
-  // Category data with API genre mapping
   const categories = [
     { name: 'Romance', icon: '💕', apiGenre: 'romance' },
     { name: 'Sci-Fi', icon: '🚀', apiGenre: 'science_fiction' },
@@ -68,7 +65,6 @@ export default function HomeScreen() {
     { name: 'Fantasy', icon: '🧙', apiGenre: 'fantasy' },
   ];
 
-  
   const handleCategoryPress = (apiGenre: string) => {
     router.push(`/category/${apiGenre}` as any);
   };
@@ -93,24 +89,31 @@ export default function HomeScreen() {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Header Section with Theme Toggle */}
+      {/* Header */}
       <View style={styles.header}>
         <Searchbar
           placeholder="Search"
           onChangeText={setSearchQuery}
           value={searchQuery}
+          onSubmitEditing={() => {
+            if (searchQuery.trim()) {
+              router.push({
+                pathname: '/(tabs)/explore',
+                params: { query: searchQuery.trim() },
+              } as any);
+            }
+          }}
           style={[styles.searchBar, { backgroundColor: theme.colors.surface }]}
           inputStyle={{ color: theme.colors.onSurface }}
         />
-        
-        {/* Theme Toggle Button */}
+
         <IconButton
           icon={isDark ? "white-balance-sunny" : "moon-waning-crescent"}
           size={24}
           onPress={toggleTheme}
           iconColor={theme.colors.onBackground}
         />
-        
+
         {!user && (
           <Button
             mode="outlined"
@@ -126,7 +129,7 @@ export default function HomeScreen() {
       {/* Logo and Tagline */}
       <View style={styles.brandSection}>
         <View style={styles.logoContainer}>
-          <Image 
+          <Image
             source={require('@/assets/images/Noveltea-logo.png')}
             style={styles.logoImage}
             resizeMode="contain"
@@ -140,7 +143,7 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      {/* Category Section - Horizontal scroll with touchable items */}
+      {/* Category Section */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
           <Text variant="headlineSmall" style={[styles.sectionTitle, { color: theme.colors.onBackground }]}>
@@ -148,13 +151,13 @@ export default function HomeScreen() {
           </Text>
           <Text style={[styles.seeAll, { color: theme.colors.onBackground }]}>›</Text>
         </View>
-        
+
         <FlatList
           horizontal
           data={categories}
           keyExtractor={(item) => item.apiGenre}
           renderItem={({ item }) => (
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.categoryItem}
               onPress={() => handleCategoryPress(item.apiGenre)}
             >
@@ -214,7 +217,7 @@ export default function HomeScreen() {
           style={[styles.clubsPromo, { backgroundColor: theme.colors.surface }]}
           onPress={() => router.push('/(tabs)/clubs' as any)}
         >
-          <Text style={[styles.clubsPromoEmoji]}>📚</Text>
+          <Text style={styles.clubsPromoEmoji}>📚</Text>
           <View style={{ flex: 1 }}>
             <Text style={[styles.clubsPromoTitle, { color: theme.colors.onSurface }]}>
               Discover & Join Book Clubs
@@ -231,9 +234,7 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row',
     paddingHorizontal: 16,
@@ -242,36 +243,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  searchBar: {
-    flex: 1,
-    elevation: 0,
-  },
-  loginButton: {
-    borderWidth: 1,
-  },
-  brandSection: {
-    alignItems: 'center',
-    paddingVertical: 24,
-  },
-  logoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 16,
-  },
-  logoImage: {
-    width: 60,
-    height: 60,
-  },
-  logo: {
-    fontSize: 48,
-    fontWeight: 'bold',
-  },
-  tagline: {
-    marginTop: 8,
-  },
-  section: {
-    marginBottom: 24,
-  },
+  searchBar: { flex: 1, elevation: 0 },
+  loginButton: { borderWidth: 1 },
+  brandSection: { alignItems: 'center', paddingVertical: 24 },
+  logoContainer: { flexDirection: 'row', alignItems: 'center', gap: 16 },
+  logoImage: { width: 60, height: 60 },
+  logo: { fontSize: 48, fontWeight: 'bold' },
+  tagline: { marginTop: 8 },
+  section: { marginBottom: 24 },
   sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -279,17 +258,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     paddingHorizontal: 16,
   },
-  sectionTitle: {
-    fontWeight: 'bold',
-  },
-  seeAll: {
-    fontSize: 24,
-  },
-  categoryItem: {
-    alignItems: 'center',
-    width: 80,
-    marginRight: 12,
-  },
+  sectionTitle: { fontWeight: 'bold' },
+  seeAll: { fontSize: 24 },
+  categoryItem: { alignItems: 'center', width: 80, marginRight: 12 },
   categoryCircle: {
     width: 70,
     height: 70,
@@ -298,17 +269,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
   },
-  categoryIcon: {
-    fontSize: 32,
-  },
-  categoryName: {
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  horizontalList: {
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-  },
+  categoryIcon: { fontSize: 32 },
+  categoryName: { fontSize: 12, textAlign: 'center' },
+  horizontalList: { paddingHorizontal: 16, paddingBottom: 8 },
   clubsPromo: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -317,16 +280,7 @@ const styles = StyleSheet.create({
     gap: 14,
     marginHorizontal: 16,
   },
-  clubsPromoEmoji: {
-    fontSize: 36,
-  },
-  clubsPromoTitle: {
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 2,
-  },
-  clubsPromoSub: {
-    fontSize: 12,
-    opacity: 0.6,
-  },
+  clubsPromoEmoji: { fontSize: 36 },
+  clubsPromoTitle: { fontSize: 15, fontWeight: '700', marginBottom: 2 },
+  clubsPromoSub: { fontSize: 12, opacity: 0.6 },
 });

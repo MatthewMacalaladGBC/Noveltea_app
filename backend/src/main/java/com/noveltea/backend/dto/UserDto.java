@@ -59,6 +59,21 @@ public class UserDto {
 
     }
 
+    // Sent when changing password
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ChangePasswordRequest {
+
+        @NotBlank
+        private String currentPassword;
+
+        @NotBlank
+        private String newPassword;
+
+    }
+
     // Returned by the backend when sending user data to the frontend (for own user - full info)
     @Data
     @NoArgsConstructor

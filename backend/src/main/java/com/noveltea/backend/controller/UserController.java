@@ -73,6 +73,17 @@ public class UserController extends BaseController {
         return ResponseEntity.ok(userService.updateMyProfile(userId, dto));
     }
 
+    // PATCH /users/password — change own password
+    @PatchMapping("/password")
+    public ResponseEntity<Void> changePassword(
+            @Valid @RequestBody UserDto.ChangePasswordRequest dto,
+            HttpServletRequest httpRequest
+    ) {
+        Long userId = getUserId(httpRequest);
+        userService.changePassword(userId, dto);
+        return ResponseEntity.noContent().build();
+    }
+
     // DELETE /users/{id} — caller can only delete their own account
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(

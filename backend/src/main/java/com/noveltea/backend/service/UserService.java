@@ -3,10 +3,12 @@ package com.noveltea.backend.service;
 import java.util.Comparator;
 import java.util.List;
 
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.noveltea.backend.dto.UserDto;
 import com.noveltea.backend.exception.ForbiddenException;
+import com.noveltea.backend.exception.InvalidRequestException;
 import com.noveltea.backend.exception.ResourceNotFoundException;
 import com.noveltea.backend.model.User;
 import com.noveltea.backend.repository.FollowerRepository;
@@ -17,10 +19,12 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final FollowerRepository followerRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, FollowerRepository followerRepository) {
+    public UserService(UserRepository userRepository, FollowerRepository followerRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.followerRepository = followerRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     // GET /users/{id} — public read, no ownership check needed
@@ -79,6 +83,19 @@ public class UserService {
         if (dto.getPrivacy() != null) user.setPrivacy(dto.getPrivacy());
 
         return toResponse(userRepository.save(user));
+    }
+
+    // PATCH /users/password — change own password
+    public void changePassword(Long userId, UserDto.ChangePasswordRequest dto) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+
+        if (!passwordEncoder.matches(dto.getCurrentPassword(), user.getHashedPassword())) {
+            throw new InvalidRequestException("Current password is incorrect.");
+        }
+
+        user.setHashedPassword(passwordEncoder.encode(dto.getNewPassword()));
+        userRepository.save(user);
     }
 
     // GET /users/username/{username} — look up public profile by username
@@ -151,8 +168,8 @@ public class UserService {
     }
 
     public List<UserDto.PublicResponse> getLeaderboard() {
-    return userRepository.findAllByOrderByPointsDesc().stream()
-            .map(this::toPublicResponse)
-            .toList();
-}
+        return userRepository.findAllByOrderByPointsDesc().stream()
+                .map(this::toPublicResponse)
+                .toList();
+    }
 }
