@@ -6,9 +6,11 @@ import { useCallback, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   Pressable,
   ScrollView,
   StyleSheet,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import { Appbar, Button, Divider, Modal, Portal, Searchbar, Switch, Text, TextInput, useTheme } from 'react-native-paper';
@@ -120,6 +122,8 @@ function CreateClubModal({
         onDismiss={() => { reset(); onClose(); }}
         contentContainerStyle={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}
       >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View>
         <Text variant="titleLarge" style={{ color: theme.colors.onSurface, fontWeight: '700', marginBottom: 16 }}>
           Create a Book Club
         </Text>
@@ -162,6 +166,8 @@ function CreateClubModal({
             Create
           </Button>
         </View>
+        </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </Portal>
   );

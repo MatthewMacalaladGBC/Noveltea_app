@@ -1,6 +1,7 @@
 import { BookList, listsApi } from '@/src/api/client';
 import { useState } from 'react';
 import {
+  Keyboard,
   Modal,
   Pressable,
   StyleSheet,
@@ -70,7 +71,7 @@ export default function CreateListModal({ visible, onClose, onCreated, token }: 
       onRequestClose={handleClose}
     >
       <Pressable style={styles.backdrop} onPress={handleClose}>
-        <Pressable style={[styles.sheet, { backgroundColor: theme.colors.surface }]} onPress={() => {}}>
+        <Pressable style={[styles.sheet, { backgroundColor: theme.colors.surface }]} onPress={() => Keyboard.dismiss()}>
           <Text variant="titleLarge" style={[styles.sheetTitle, { color: theme.colors.onSurface }]}>
             Create List
           </Text>

@@ -20,9 +20,11 @@ import {
   Alert,
   FlatList,
   Image,
+  Keyboard,
   Pressable,
   ScrollView,
   StyleSheet,
+  TouchableWithoutFeedback,
   View,
 } from 'react-native';
 import {
@@ -693,6 +695,34 @@ export default function ClubHubScreen() {
     );
   };
 
+  const handleFinishBook = () => {
+    if (!activeItem) return;
+    const today = new Date().toISOString().split('T')[0];
+    Alert.alert(
+      'Mark as Finished?',
+      `Mark "${activeItem.bookTitle}" as completed?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Mark Finished',
+          onPress: async () => {
+            setActionLoading(true);
+            try {
+              await clubItemsApi.updateItem(activeItem.clubItemId, { status: 'COMPLETED', endDate: today }, token!);
+              const fresh = await clubItemsApi.getItemsByClub(clubId, token!);
+              setItems(fresh);
+              setSnackMessage(`"${activeItem.bookTitle}" marked as finished.`);
+            } catch (e: any) {
+              setSnackMessage(e?.message || 'Failed to update');
+            } finally {
+              setActionLoading(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   // ── Announcement handlers ─────────────────────────────────────────────────
 
   const handleSaveAnnouncement = async () => {
@@ -1114,6 +1144,7 @@ export default function ClubHubScreen() {
                     onRemove={() => handleRemoveItem(activeItem)}
                     onEditEndDate={() => setEditDateState({ item: activeItem, field: 'endDate' })}
                     onMoveToUpcoming={handleMoveToUpcoming}
+                    onFinish={handleFinishBook}
                     theme={theme}
                   />
                 ) : (
@@ -1231,7 +1262,7 @@ export default function ClubHubScreen() {
                         </Text>
                       </Pressable>
                       <Chip compact style={{ backgroundColor: theme.colors.surface }}>
-                        {m.role}
+                        {m.role === 'MODERATOR' ? 'Mod' : m.role === 'OWNER' ? 'Owner' : 'Member'}
                       </Chip>
                       {/* Owner-only role controls — hidden for own row and the owner row */}
                       {isOwner && !isThisMe && !isThisOwner ? (
@@ -1352,6 +1383,8 @@ export default function ClubHubScreen() {
           onDismiss={() => setEditClubModalVisible(false)}
           contentContainerStyle={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}
         >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View>
           <Text variant="titleMedium" style={{ color: theme.colors.onSurface, fontWeight: '700', marginBottom: 14 }}>
             Edit Club
           </Text>
@@ -1393,6 +1426,8 @@ export default function ClubHubScreen() {
               Save
             </Button>
           </View>
+          </View>
+          </TouchableWithoutFeedback>
         </Modal>
       </Portal>
 
@@ -1403,6 +1438,8 @@ export default function ClubHubScreen() {
           onDismiss={() => setAnnouncementModalVisible(false)}
           contentContainerStyle={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}
         >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View>
           <Text variant="titleMedium" style={{ color: theme.colors.onSurface, fontWeight: '700', marginBottom: 14 }}>
             {announcement ? 'Edit Announcement' : 'Add Announcement'}
           </Text>
@@ -1423,6 +1460,8 @@ export default function ClubHubScreen() {
               Save
             </Button>
           </View>
+          </View>
+          </TouchableWithoutFeedback>
         </Modal>
       </Portal>
 
@@ -1433,6 +1472,8 @@ export default function ClubHubScreen() {
           onDismiss={() => setPollModalVisible(false)}
           contentContainerStyle={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}
         >
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <View>
           <Text variant="titleMedium" style={{ color: theme.colors.onSurface, fontWeight: '700', marginBottom: 14 }}>
             Create Poll
           </Text>
@@ -1472,6 +1513,8 @@ export default function ClubHubScreen() {
               Create
             </Button>
           </View>
+          </View>
+          </TouchableWithoutFeedback>
         </Modal>
       </Portal>
 
@@ -1492,6 +1535,7 @@ function CurrentReadCard({
   onRemove,
   onEditEndDate,
   onMoveToUpcoming,
+  onFinish,
   theme,
 }: {
   item: BookClubItemResponse;
@@ -1499,6 +1543,7 @@ function CurrentReadCard({
   onRemove: () => void;
   onEditEndDate: () => void;
   onMoveToUpcoming: () => void;
+  onFinish: () => void;
   theme: any;
 }) {
   const bookId = item.bookId.replace('/works/', '');
@@ -1530,18 +1575,25 @@ function CurrentReadCard({
         </View>
       </View>
       {canManage ? (
-        <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 16, marginTop: 8 }}>
-          <Pressable onPress={onMoveToUpcoming}>
-            <Text style={{ color: theme.colors.primary, fontSize: 12 }}>Move to Upcoming</Text>
-          </Pressable>
-          <Pressable onPress={onEditEndDate}>
-            <Text style={{ color: theme.colors.primary, fontSize: 12 }}>
-              {item.endDate ? 'Edit End Date' : 'Set End Date'}
-            </Text>
-          </Pressable>
-          <Pressable onPress={onRemove}>
-            <Text style={{ color: theme.colors.error, fontSize: 12 }}>Remove</Text>
-          </Pressable>
+        <View style={{ marginTop: 8, gap: 6 }}>
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 16 }}>
+            <Pressable onPress={onFinish}>
+              <Text style={{ color: theme.colors.secondaryAccent, fontSize: 12, fontWeight: '600' }}>Mark Finished</Text>
+            </Pressable>
+            <Pressable onPress={onMoveToUpcoming}>
+              <Text style={{ color: theme.colors.primary, fontSize: 12 }}>Move to Upcoming</Text>
+            </Pressable>
+          </View>
+          <View style={{ flexDirection: 'row', justifyContent: 'flex-end', gap: 16 }}>
+            <Pressable onPress={onEditEndDate}>
+              <Text style={{ color: theme.colors.primary, fontSize: 12 }}>
+                {item.endDate ? 'Edit End Date' : 'Set End Date'}
+              </Text>
+            </Pressable>
+            <Pressable onPress={onRemove}>
+              <Text style={{ color: theme.colors.error, fontSize: 12 }}>Remove</Text>
+            </Pressable>
+          </View>
         </View>
       ) : null}
     </Pressable>
