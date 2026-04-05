@@ -55,6 +55,16 @@ public class ReviewController extends BaseController {
         return ResponseEntity.ok(reviewService.update(userId, reviewId, request));
     }
 
+    // GET /reviews/user/{userId} — public: public reviews only; own: all reviews
+    @GetMapping("/user/{userId}")
+    public ResponseEntity<List<ReviewDto.Response>> getByUser(
+            @PathVariable Long userId,
+            HttpServletRequest httpRequest
+    ) {
+        Long requesterId = getUserId(httpRequest);
+        return ResponseEntity.ok(reviewService.getByUserId(requesterId, userId));
+    }
+
     // GET /reviews/me/count — total reviews written by the authenticated user
     @GetMapping("/me/count")
     public ResponseEntity<Long> getMyReviewCount(HttpServletRequest httpRequest) {
@@ -76,4 +86,28 @@ public class ReviewController extends BaseController {
         reviewService.delete(userId, reviewId);
         return ResponseEntity.noContent().build();
     }
+
+    // POST /reviews/{reviewId}/like
+@PostMapping("/{reviewId}/like")
+public ResponseEntity<ReviewDto.Response> likeReview(
+        @PathVariable Long reviewId,
+        HttpServletRequest httpRequest
+) {
+    Long userId = getUserId(httpRequest);
+    if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+    return ResponseEntity.ok(reviewService.likeReview(userId, reviewId));
+}
+
+// DELETE /reviews/{reviewId}/like
+@DeleteMapping("/{reviewId}/like")
+public ResponseEntity<ReviewDto.Response> unlikeReview(
+        @PathVariable Long reviewId,
+        HttpServletRequest httpRequest
+) {
+    Long userId = getUserId(httpRequest);
+    if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+
+    return ResponseEntity.ok(reviewService.unlikeReview(userId, reviewId));
+}
 }

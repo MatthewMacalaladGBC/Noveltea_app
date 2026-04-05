@@ -1,5 +1,6 @@
+import { useAuth } from '@/src/context/AuthContext';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -10,17 +11,14 @@ import {
 } from 'react-native';
 import { Appbar, Searchbar, Text, useTheme } from 'react-native-paper';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
-
 interface SearchBook {
   key: string;
   title: string;
   author_name?: string[];
   first_publish_year?: number;
   cover_i?: number;
+  isbn?: string[];
 }
-
-// ─── Browse categories ────────────────────────────────────────────────────────
 
 const BROWSE_CATEGORIES = [
   { label: 'Genre',          route: '/(tabs)/genre' },
@@ -31,8 +29,6 @@ const BROWSE_CATEGORIES = [
   { label: 'Release Date',   route: null },
   { label: 'Featured Lists', route: null },
 ];
-
-// ─── Browse row ───────────────────────────────────────────────────────────────
 
 function BrowseRow({ label, onPress }: { label: string; onPress: () => void }) {
   const theme = useTheme();
@@ -45,15 +41,11 @@ function BrowseRow({ label, onPress }: { label: string; onPress: () => void }) {
         { borderBottomColor: theme.colors.surfaceVariant, opacity: pressed ? 0.7 : 1 },
       ]}
     >
-      <Text style={[styles.browseLabel, { color: theme.colors.onBackground }]}>
-        {label}
-      </Text>
+      <Text style={[styles.browseLabel, { color: theme.colors.onBackground }]}>{label}</Text>
       <Text style={{ color: theme.colors.onSurface, fontSize: 18 }}>›</Text>
     </Pressable>
   );
 }
-
-// ─── Book result row ──────────────────────────────────────────────────────────
 
 function BookResult({ item }: { item: SearchBook }) {
   const theme = useTheme();
@@ -68,12 +60,9 @@ function BookResult({ item }: { item: SearchBook }) {
         <Image source={{ uri: coverUrl }} style={styles.cover} resizeMode="cover" />
       ) : (
         <View style={[styles.cover, styles.noCover, { backgroundColor: theme.colors.surface }]}>
-          <Text style={{ color: theme.colors.onSurface, fontSize: 10, textAlign: 'center' }}>
-            No Cover
-          </Text>
+          <Text style={{ color: theme.colors.onSurface, fontSize: 10, textAlign: 'center' }}>No Cover</Text>
         </View>
       )}
-
       <View style={styles.resultInfo}>
         <Text numberOfLines={2} style={[styles.resultTitle, { color: theme.colors.onBackground }]}>
           {item.title}
@@ -81,11 +70,9 @@ function BookResult({ item }: { item: SearchBook }) {
             ? <Text style={[styles.resultYear, { color: theme.colors.onSurface }]}> ({item.first_publish_year})</Text>
             : null}
         </Text>
-
         <Text numberOfLines={1} style={[styles.resultAuthor, { color: theme.colors.onSurface }]}>
           Written by: {item.author_name?.[0] ?? 'Unknown Author'}
         </Text>
-
         <Pressable
           onPress={() => router.push({ pathname: '/book/[id]', params: { id: bookId } })}
           style={({ pressed }) => [
@@ -93,41 +80,76 @@ function BookResult({ item }: { item: SearchBook }) {
             { backgroundColor: theme.colors.onBackground, opacity: pressed ? 0.75 : 1 },
           ]}
         >
-          <Text style={[styles.viewMoreText, { color: theme.colors.background }]}>
-            View More
-          </Text>
+          <Text style={[styles.viewMoreText, { color: theme.colors.background }]}>View More</Text>
         </Pressable>
       </View>
     </View>
   );
 }
 
-// ─── Main screen ──────────────────────────────────────────────────────────────
+function calculateAge(dob: string): number {
+  const birth = new Date(dob);
+  const today = new Date();
+  let age = today.getFullYear() - birth.getFullYear();
+  const m = today.getMonth() - birth.getMonth();
+  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+  return age;
+}
+
+async function isMature(isbn: string): Promise<boolean> {
+  try {
+    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
+    const data = await res.json();
+    if (data.totalItems > 0) return data.items[0].volumeInfo.maturityRating === 'MATURE';
+    return false;
+  } catch { return false; }
+}
+
+async function filterMatureBooks(books: SearchBook[], userAge: number): Promise<SearchBook[]> {
+  if (userAge >= 18) return books;
+  const results = await Promise.all(
+    books.map(async (book) => {
+      const isbn = book.isbn?.[0];
+      if (!isbn) return book;
+      const mature = await isMature(isbn);
+      return mature ? null : book;
+    })
+  );
+  return results.filter(Boolean) as SearchBook[];
+}
 
 export default function ExploreScreen() {
   const theme = useTheme();
-  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const { user } = useAuth();
+  const { mode, query: initialQuery } = useLocalSearchParams<{ mode?: string; query?: string }>();
   const isTrendingMode = mode === 'trending';
 
   const [trendingActive, setTrendingActive] = useState(isTrendingMode);
-
-  // Reset trending mode when tab is focused without the param
-  useFocusEffect(
-    useCallback(() => {
-      if (!isTrendingMode) {
-        setTrendingActive(false);
-        setResults([]);
-        setQuery('');
-      }
-    }, [isTrendingMode])
-  );
-
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery ?? '');
   const [results, setResults] = useState<SearchBook[]>([]);
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Auto-load trending when navigated with ?mode=trending
+  const userAge = !user ? 0 : (user.dateOfBirth ? calculateAge(user.dateOfBirth) : 18);
+
+  // Trigger search when arriving from home screen with a query
+  useEffect(() => {
+    if (initialQuery?.trim()) {
+      setQuery(initialQuery.trim());
+      searchBooks(initialQuery.trim());
+    }
+  }, [initialQuery]);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!isTrendingMode && !initialQuery) {
+        setTrendingActive(false);
+        setResults([]);
+        setQuery('');
+      }
+    }, [isTrendingMode, initialQuery])
+  );
+
   useEffect(() => {
     if (isTrendingMode) {
       setTrendingActive(true);
@@ -138,19 +160,31 @@ export default function ExploreScreen() {
   const fetchTrending = async () => {
     setLoading(true);
     try {
-      const res = await fetch(
-        'https://openlibrary.org/search.json?q=trending&sort=rating&limit=20&fields=key,title,author_name,first_publish_year,cover_i'
+      const FICTION_GENRES = ['fantasy', 'science_fiction', 'romance'];
+      const results = await Promise.all(
+        FICTION_GENRES.map(genre =>
+          fetch(`https://openlibrary.org/subjects/${genre}.json?sort=trending&limit=7`)
+            .then(res => res.ok ? res.json() : null)
+            .then(data => (data?.works ?? []).map((w: any) => ({
+              key: w.key,
+              title: w.title,
+              author_name: w.authors?.map((a: any) => a.name),
+              first_publish_year: w.first_publish_year,
+              cover_i: w.cover_id,
+              isbn: w.isbn,
+            })))
+            .catch(() => [])
+        )
       );
-      const data = await res.json();
-      setResults(data.docs ?? []);
-    } catch (e) {
-      console.error('Trending fetch error:', e);
+      const filtered = await filterMatureBooks(results.flat(), userAge);
+      setResults(filtered);
+    } catch {
+      setResults([]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Debounced search
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!query.trim()) {
@@ -165,12 +199,13 @@ export default function ExploreScreen() {
     setLoading(true);
     try {
       const res = await fetch(
-        `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=20&fields=key,title,author_name,first_publish_year,cover_i`
+        `https://openlibrary.org/search.json?q=${encodeURIComponent(q)}&limit=20&fields=key,title,author_name,first_publish_year,cover_i,isbn`
       );
-      const data = await res.json();
-      setResults(data.docs ?? []);
-    } catch (e) {
-      console.error('Search error:', e);
+      const data = res.ok ? await res.json().catch(() => null) : null;
+      const filtered = await filterMatureBooks(data?.docs ?? [], userAge);
+      setResults(filtered);
+    } catch {
+      setResults([]);
     } finally {
       setLoading(false);
     }
@@ -181,7 +216,6 @@ export default function ExploreScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.colors.background }]}>
-      {/* Header */}
       <View style={[styles.header, { backgroundColor: theme.colors.background }]}>
         {trendingActive && !query ? (
           <Appbar.Header style={{ backgroundColor: 'transparent', elevation: 0, height: 40, marginBottom: 4 }}>
@@ -205,7 +239,6 @@ export default function ExploreScreen() {
         )}
       </View>
 
-      {/* Search bar */}
       <View style={styles.searchWrapper}>
         <Searchbar
           placeholder="Find books, authors, lists, clubs..."
@@ -218,16 +251,12 @@ export default function ExploreScreen() {
         />
       </View>
 
-      {/* Content */}
       {!showResults ? (
-        // ── Browse view ──
         <FlatList
           data={BROWSE_CATEGORIES}
           keyExtractor={(item) => item.label}
           ListHeaderComponent={
-            <Text style={[styles.browseHeader, { color: theme.colors.onBackground }]}>
-              Browse by
-            </Text>
+            <Text style={[styles.browseHeader, { color: theme.colors.onBackground }]}>Browse by</Text>
           }
           renderItem={({ item }) => (
             <BrowseRow
@@ -261,17 +290,14 @@ export default function ExploreScreen() {
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
 const styles = StyleSheet.create({
   container:     { flex: 1 },
   header:        { paddingTop: 56, paddingHorizontal: 16, paddingBottom: 8 },
   headerTitle:   { fontWeight: '700', textAlign: 'center' },
   searchWrapper: { paddingHorizontal: 16, paddingVertical: 8 },
   searchBar:     { elevation: 0, borderRadius: 12 },
-
-  browseList:   { paddingHorizontal: 16, paddingTop: 8 },
-  browseHeader: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
+  browseList:    { paddingHorizontal: 16, paddingTop: 8 },
+  browseHeader:  { fontSize: 18, fontWeight: '700', marginBottom: 4 },
   browseRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -279,17 +305,16 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  browseLabel: { fontSize: 15 },
-
-  resultsList: { paddingHorizontal: 16, paddingBottom: 24 },
+  browseLabel:  { fontSize: 15 },
+  resultsList:  { paddingHorizontal: 16, paddingBottom: 24 },
   resultCard: {
     flexDirection: 'row',
     paddingVertical: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
     gap: 14,
   },
-  cover:   { width: 80, height: 120, borderRadius: 8, flexShrink: 0 },
-  noCover: { justifyContent: 'center', alignItems: 'center' },
+  cover:        { width: 80, height: 120, borderRadius: 8, flexShrink: 0 },
+  noCover:      { justifyContent: 'center', alignItems: 'center' },
   resultInfo:   { flex: 1, justifyContent: 'center', gap: 6 },
   resultTitle:  { fontSize: 16, fontWeight: '700', lineHeight: 22 },
   resultYear:   { fontWeight: '400', fontSize: 14 },
@@ -302,5 +327,5 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   viewMoreText: { fontSize: 13, fontWeight: '700' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  centered:     { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });

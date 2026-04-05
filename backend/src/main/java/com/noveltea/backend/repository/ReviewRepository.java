@@ -39,4 +39,10 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     // Total review count for a user (for profile stats)
     long countByUser_UserId(Long userId);
 
+    // All reviews written by a user (own profile — includes private)
+    List<Review> findByUser_UserId(Long userId);
+
+    // Public reviews written by a user (other users' profiles)
+    List<Review> findByUser_UserIdAndVisibilityTrue(Long userId);
+
 }

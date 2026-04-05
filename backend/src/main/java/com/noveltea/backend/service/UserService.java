@@ -1,23 +1,30 @@
 package com.noveltea.backend.service;
 
+import java.util.Comparator;
+import java.util.List;
+
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
 import com.noveltea.backend.dto.UserDto;
 import com.noveltea.backend.exception.ForbiddenException;
+import com.noveltea.backend.exception.InvalidRequestException;
 import com.noveltea.backend.exception.ResourceNotFoundException;
 import com.noveltea.backend.model.User;
 import com.noveltea.backend.repository.FollowerRepository;
 import com.noveltea.backend.repository.UserRepository;
-
-import org.springframework.stereotype.Service;
 
 @Service
 public class UserService {
 
     private final UserRepository userRepository;
     private final FollowerRepository followerRepository;
+    private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, FollowerRepository followerRepository) {
+    public UserService(UserRepository userRepository, FollowerRepository followerRepository, PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.followerRepository = followerRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     // GET /users/{id} — public read, no ownership check needed
@@ -78,6 +85,36 @@ public class UserService {
         return toResponse(userRepository.save(user));
     }
 
+    // PATCH /users/password — change own password
+    public void changePassword(Long userId, UserDto.ChangePasswordRequest dto) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+
+        if (!passwordEncoder.matches(dto.getCurrentPassword(), user.getHashedPassword())) {
+            throw new InvalidRequestException("Current password is incorrect.");
+        }
+
+        user.setHashedPassword(passwordEncoder.encode(dto.getNewPassword()));
+        userRepository.save(user);
+    }
+
+    // GET /users/username/{username} — look up public profile by username
+    public UserDto.PublicResponse getUserByUsername(Long requestingUserId, String username) {
+        User target = userRepository.findByUsername(username)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + username));
+        return getPublicProfile(requestingUserId, target.getUserId());
+    }
+
+    // GET /users/search?username= — public users only, startsWith sorted first
+    public List<UserDto.PublicResponse> searchUsers(String query) {
+        String lower = query.toLowerCase();
+        return userRepository.findByUsernameContainingIgnoreCase(query).stream()
+                .filter(u -> !u.getPrivacy())
+                .sorted(Comparator.comparingInt(u -> u.getUsername().toLowerCase().startsWith(lower) ? 0 : 1))
+                .map(this::toPublicResponse)
+                .toList();
+    }
+
     // DELETE /users/{id} — user themselves or an admin can delete an account
     public void deleteUser(Long requestingUserId, Long targetId) {
         if (!requestingUserId.equals(targetId) && !isAdmin(requestingUserId)) {
@@ -106,6 +143,12 @@ public class UserService {
                 .privacy(user.getPrivacy())
                 .role(user.getRole() == null ? null : user.getRole().toString())
                 .joinDate(user.getJoinDate())
+                .points(user.getPoints())
+                .reviewLikesReceived(user.getReviewLikesReceived())
+                .currentStreak(user.getCurrentStreak())
+                .longestStreak(user.getLongestStreak())
+                .lastActiveDate(user.getLastActiveDate())
+                .highestRewardedStreak(user.getHighestRewardedStreak())
                 .build();
     }
 
@@ -117,6 +160,18 @@ public class UserService {
                 .privacy(user.getPrivacy())
                 .role(user.getRole() == null ? null : user.getRole().toString())
                 .joinDate(user.getJoinDate())
+                .points(user.getPoints())
+                .reviewLikesReceived(user.getReviewLikesReceived())
+                .currentStreak(user.getCurrentStreak())
+                .longestStreak(user.getLongestStreak())
+                .lastActiveDate(user.getLastActiveDate())
+                .highestRewardedStreak(user.getHighestRewardedStreak())
                 .build();
+    }
+
+    public List<UserDto.PublicResponse> getLeaderboard() {
+        return userRepository.findAllByOrderByPointsDesc().stream()
+                .map(this::toPublicResponse)
+                .toList();
     }
 }

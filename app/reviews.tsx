@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { router, useLocalSearchParams } from "expo-router";
 import { Appbar, Button, Text, TextInput, useTheme } from "react-native-paper";
 import {
   createReview,
   deleteReview,
   getReviewsByBook,
+  likeReview,
+  unlikeReview,
   updateReview,
   ReviewResponse,
 } from "@/src/lib/reviews";
@@ -226,6 +228,30 @@ export default function ReviewsScreen() {
     }
   };
 
+  const toggleLike = async (reviewId: number, likedByCurrentUser?: boolean) => {
+    if (!token) {
+      router.push("/auth/login");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      if (likedByCurrentUser) {
+        await unlikeReview(reviewId, token);
+      } else {
+        await likeReview(reviewId, token);
+      }
+
+      await loadReviews();
+    } catch (e: any) {
+      setError(e?.message || "Failed to update like");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
       <Appbar.Header style={{ backgroundColor: theme.colors.background }}>
@@ -307,10 +333,22 @@ export default function ReviewsScreen() {
                     gap: 8,
                   }}
                 >
-                  <Text style={{ fontWeight: "700" }}>
-                    ⭐ {toNumber(r.rating).toFixed(1)} • {r.username || "User"}
-                    {isMine ? " (you)" : ""}
-                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "wrap", gap: 4 }}>
+                    <Text style={{ fontWeight: "700" }}>
+                      ⭐ {toNumber(r.rating).toFixed(1)} •
+                    </Text>
+                    {token && !isMine ? (
+                      <Pressable onPress={() => router.push({ pathname: '/user/[username]', params: { username: r.username } } as any)}>
+                        <Text style={{ fontWeight: "700", textDecorationLine: "underline" }}>
+                          {r.username || "User"}
+                        </Text>
+                      </Pressable>
+                    ) : (
+                      <Text style={{ fontWeight: "700" }}>
+                        {r.username || "User"}{isMine ? " (you)" : ""}
+                      </Text>
+                    )}
+                  </View>
 
                   {!isEditing ? (
                     <>
@@ -363,6 +401,22 @@ export default function ReviewsScreen() {
                       </View>
                     </View>
                   )}
+
+                  <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: 4 }}>
+                    <Text style={{ fontSize: 13, opacity: 0.7 }}>
+                      👍 {r.likes ?? 0}
+                    </Text>
+
+                    {!isMine ? (
+                      <Button
+                        mode={r.likedByCurrentUser ? "contained-tonal" : "outlined"}
+                        onPress={() => toggleLike(r.reviewId, r.likedByCurrentUser)}
+                        disabled={loading || !token}
+                      >
+                        {r.likedByCurrentUser ? "👍 Liked" : "👍 Like"}
+                      </Button>
+                    ) : null}
+                  </View>
 
                   <Text style={{ fontSize: 12, opacity: 0.6 }}>
                     {r.creationDate ? `Created: ${r.creationDate}` : ""}

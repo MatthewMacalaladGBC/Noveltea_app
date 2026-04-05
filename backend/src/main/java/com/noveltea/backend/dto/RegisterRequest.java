@@ -1,5 +1,7 @@
 package com.noveltea.backend.dto;
 
+import java.time.LocalDate;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -17,11 +19,21 @@ public class RegisterRequest {
     @Size(min = 6, message = "Password must be at least 6 characters")
     private String password;
 
+    @NotBlank
+    private String dateOfBirth; // receive as "yyyy-MM-dd" string
+
     public String getUsername() { return username; }
     public String getEmail() { return email; }
     public String getPassword() { return password; }
+    public String getDateOfBirth() { return dateOfBirth; }
+
+    // Convenience method for the service layer to get a LocalDate
+    public LocalDate getParsedDateOfBirth() {
+        return LocalDate.parse(dateOfBirth);
+    }
 
     public void setUsername(String username) { this.username = username; }
     public void setEmail(String email) { this.email = email; }
     public void setPassword(String password) { this.password = password; }
+    public void setDateOfBirth(String dateOfBirth) { this.dateOfBirth = dateOfBirth; }
 }

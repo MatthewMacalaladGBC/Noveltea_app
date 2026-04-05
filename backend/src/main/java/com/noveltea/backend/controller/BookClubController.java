@@ -66,9 +66,27 @@ public class BookClubController extends BaseController {
         return ResponseEntity.ok(bookClubService.getPublicClubs());
     }
 
+    // GET /clubs/me - clubs the authenticated user belongs to (any role)
+    @GetMapping("/me")
+    public ResponseEntity<List<BookClubDto.Response>> getMyClubs(HttpServletRequest httpRequest) {
+        Long userId = getUserId(httpRequest);
+        if (userId == null) return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        return ResponseEntity.ok(bookClubService.getMyClubs(userId));
+    }
+
     // GET /clubs/search?name=... (public) - search public clubs
     @GetMapping("/search")
     public ResponseEntity<List<BookClubDto.Response>> searchPublicClubs(@RequestParam String name) {
         return ResponseEntity.ok(bookClubService.searchPublicClubs(name));
+    }
+
+    // GET /clubs/search/all?name=... (authenticated) - search all clubs including private
+    @GetMapping("/search/all")
+    public ResponseEntity<List<BookClubDto.Response>> searchAllClubs(
+            @RequestParam String name,
+            HttpServletRequest httpRequest
+    ) {
+        getUserId(httpRequest); // validates auth token is present
+        return ResponseEntity.ok(bookClubService.searchAllClubs(name));
     }
 }

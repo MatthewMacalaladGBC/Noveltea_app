@@ -7,6 +7,8 @@ import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RestController
 @RequestMapping("/users")
 public class UserController extends BaseController {
@@ -15,6 +17,29 @@ public class UserController extends BaseController {
 
     public UserController(UserService userService) {
         this.userService = userService;
+    }
+
+    // GET /users/search?username= — must be declared before /{id} to avoid path conflict
+    @GetMapping("/search")
+    public ResponseEntity<List<UserDto.PublicResponse>> searchUsers(
+            @RequestParam String username
+    ) {
+        return ResponseEntity.ok(userService.searchUsers(username));
+    }
+
+    @GetMapping("/leaderboard")
+    public ResponseEntity<List<UserDto.PublicResponse>> getLeaderboard() {
+        return ResponseEntity.ok(userService.getLeaderboard());
+    }
+
+    // GET /users/username/{username} — look up public profile by username
+    @GetMapping("/username/{username}")
+    public ResponseEntity<UserDto.PublicResponse> getUserByUsername(
+            @PathVariable String username,
+            HttpServletRequest httpRequest
+    ) {
+        Long requestingUserId = getUserId(httpRequest);
+        return ResponseEntity.ok(userService.getUserByUsername(requestingUserId, username));
     }
 
     // GET /users/{id} — public profile view, privacy-aware, no email returned
@@ -46,6 +71,17 @@ public class UserController extends BaseController {
     ) {
         Long userId = getUserId(httpRequest);
         return ResponseEntity.ok(userService.updateMyProfile(userId, dto));
+    }
+
+    // PATCH /users/password — change own password
+    @PatchMapping("/password")
+    public ResponseEntity<Void> changePassword(
+            @Valid @RequestBody UserDto.ChangePasswordRequest dto,
+            HttpServletRequest httpRequest
+    ) {
+        Long userId = getUserId(httpRequest);
+        userService.changePassword(userId, dto);
+        return ResponseEntity.noContent().build();
     }
 
     // DELETE /users/{id} — caller can only delete their own account

@@ -2,6 +2,7 @@ package com.noveltea.backend.service;
 
 import com.noveltea.backend.dto.BookClubDto;
 import com.noveltea.backend.exception.ForbiddenException;
+import com.noveltea.backend.exception.InvalidRequestException;
 import com.noveltea.backend.exception.ResourceNotFoundException;
 import com.noveltea.backend.model.BookClub;
 import com.noveltea.backend.model.BookClubMember;
@@ -34,6 +35,11 @@ public class BookClubService {
     public BookClubDto.Response createClub(Long userId, BookClubDto.CreateRequest request) {
         User owner = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+
+        // Enforce one-owned-club-at-a-time rule
+        if (bookClubMemberRepository.existsByUser_UserIdAndRole(userId, BookClubMemberRole.OWNER)) {
+            throw new InvalidRequestException("You already own a book club. Delete it before creating a new one.");
+        }
 
         BookClub bookClub = BookClub.builder()
                 .name(request.getName())
@@ -126,14 +132,8 @@ public class BookClubService {
         BookClub bookClub = bookClubRepository.findById(bookClubId)
                 .orElseThrow(() -> new ResourceNotFoundException("Book Club not found: " + bookClubId));
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
-
-        // Private clubs are only visible to members
-        if (bookClub.getPrivacy() && !bookClubMemberRepository.existsByUserAndBookClub(user, bookClub)) {
-            throw new ForbiddenException("Only members can view a private club.");
-        }
-
+        // Private clubs return basic info to all authenticated users (so they can request to join via search).
+        // Content restriction (members list, items) is enforced at the respective endpoints.
         return mapToResponse(bookClub);
     }
 
@@ -159,15 +159,49 @@ public class BookClubService {
                 .toList();
     }
 
+    /**
+     * Searches all clubs (public + private) by partial title match.
+     * Used for authenticated search so users can find and request to join private clubs.
+     */
+    @Transactional(readOnly = true)
+    public List<BookClubDto.Response> searchAllClubs(String name) {
+        return bookClubRepository.findByNameContainingIgnoreCase(name).stream()
+                .map(this::mapToResponse)
+                .toList();
+    }
+
+    /**
+     * Returns all clubs the authenticated user belongs to (any role).
+     */
+    @Transactional(readOnly = true)
+    public List<BookClubDto.Response> getMyClubs(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
+
+        return bookClubMemberRepository.findByUser(user).stream()
+                .map(member -> mapToResponse(member.getBookClub()))
+                .toList();
+    }
+
     // ----- DTO MAPPING -----
 
     private BookClubDto.Response mapToResponse(BookClub bookClub) {
+        long memberCount = bookClubMemberRepository.countByBookClub(bookClub);
+        String ownerUsername = bookClubMemberRepository
+                .findByBookClubAndRole(bookClub, BookClubMemberRole.OWNER)
+                .stream()
+                .findFirst()
+                .map(m -> m.getUser().getUsername())
+                .orElse(null);
+
         return BookClubDto.Response.builder()
                 .bookClubId(bookClub.getBookClubId())
                 .name(bookClub.getName())
                 .description(bookClub.getDescription())
                 .privacy(bookClub.getPrivacy())
                 .creationDate(bookClub.getCreationDate())
+                .memberCount(memberCount)
+                .ownerUsername(ownerUsername)
                 .build();
     }
 

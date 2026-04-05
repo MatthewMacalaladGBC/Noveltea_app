@@ -2,8 +2,16 @@ package com.noveltea.backend.model;
 
 import java.time.LocalDate;
 
-import jakarta.persistence.*;
-import lombok.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 @Entity
 @Table(name = "users")
@@ -32,6 +40,10 @@ public class User {
     @Column(columnDefinition = "TEXT")
     private String bio;
 
+    //Date of birth (nullable — not required for seed/admin accounts; maturity check skips if absent)
+    @Column
+    private LocalDate dateOfBirth;
+
     // Sets privacy to default to public (false)
     @Builder.Default
     @Column(nullable = false)
@@ -46,4 +58,25 @@ public class User {
     @Column(nullable = false)
     private LocalDate joinDate = LocalDate.now();
 
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private Integer points = 0;
+
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private Integer reviewLikesReceived = 0;
+
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private Integer currentStreak = 0;
+
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private Integer longestStreak = 0;
+
+    private LocalDate lastActiveDate;
+
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private Integer highestRewardedStreak = 0;
 }

@@ -11,6 +11,7 @@ export type ReviewResponse = {
   rating: string | number; // backend BigDecimal may come as string
   reviewText?: string | null;
   likes: number;
+  likedByCurrentUser?: boolean;
   visibility: boolean;
   creationDate: string; // LocalDate serialized
 };
@@ -61,6 +62,7 @@ export async function createReview(payload: CreateReviewPayload, token: string) 
 
   return data;
 }
+
 export type UpdateReviewPayload = {
   rating?: number;
   reviewText?: string | null;
@@ -98,4 +100,44 @@ export async function deleteReview(reviewId: number, token: string) {
     const msg = data?.message || data?.error || "Failed to delete review";
     throw new Error(msg);
   }
+}
+
+export async function likeReview(reviewId: number, token: string): Promise<ReviewResponse> {
+  const res = await fetch(`${API_URL}/reviews/${reviewId}/like`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  let data: any = null;
+  try {
+    data = await res.json();
+  } catch {}
+
+  if (!res.ok) {
+    throw new Error(data?.message || "Failed to like review");
+  }
+
+  return data;
+}
+
+export async function unlikeReview(reviewId: number, token: string): Promise<ReviewResponse> {
+  const res = await fetch(`${API_URL}/reviews/${reviewId}/like`, {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  let data: any = null;
+  try {
+    data = await res.json();
+  } catch {}
+
+  if (!res.ok) {
+    throw new Error(data?.message || "Failed to unlike review");
+  }
+
+  return data;
 }

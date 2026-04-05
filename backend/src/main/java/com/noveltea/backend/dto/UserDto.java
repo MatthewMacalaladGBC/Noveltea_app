@@ -1,10 +1,13 @@
 package com.noveltea.backend.dto;
 
+import java.time.LocalDate;
+
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
-import lombok.*;
-
-import java.time.LocalDate;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 public class UserDto {
 
@@ -56,6 +59,21 @@ public class UserDto {
 
     }
 
+    // Sent when changing password
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class ChangePasswordRequest {
+
+        @NotBlank
+        private String currentPassword;
+
+        @NotBlank
+        private String newPassword;
+
+    }
+
     // Returned by the backend when sending user data to the frontend (for own user - full info)
     @Data
     @NoArgsConstructor
@@ -70,6 +88,13 @@ public class UserDto {
         private Boolean privacy;
         private String role;
         private LocalDate joinDate;
+        private LocalDate dateOfBirth;
+        private Integer points;
+        private Integer reviewLikesReceived;
+        private Integer currentStreak;
+        private Integer longestStreak;
+        private LocalDate lastActiveDate;
+        private Integer highestRewardedStreak;
 
     }
 
@@ -86,7 +111,12 @@ public class UserDto {
         private Boolean privacy;
         private String role;
         private LocalDate joinDate;
-
+        private Integer points;
+        private Integer reviewLikesReceived;
+        private Integer currentStreak;
+        private Integer longestStreak;
+        private LocalDate lastActiveDate;
+        private Integer highestRewardedStreak;
     }
 
 }
