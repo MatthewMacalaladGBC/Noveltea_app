@@ -21,6 +21,7 @@ public class BookListService {
     private final BookListRepository bookListRepository;
     private final ListItemRepository listItemRepository;
     private final UserRepository userRepository;
+    private final GamificationService gamificationService;
 
     // ----- CORE OPERATIONS -----
 
@@ -44,8 +45,9 @@ public class BookListService {
             list.setVisibility(request.getVisibility());
         }
 
-        return mapToResponse(bookListRepository.save(list));
-    }
+        BookList saved = bookListRepository.save(list);
+        gamificationService.updateDailyStreak(userId);
+        return mapToResponse(saved);    }
 
     /**
      * Updates an existing book list. Only the creator can update.

@@ -94,6 +94,8 @@ public class UserDto {
         private Integer currentStreak;
         private Integer longestStreak;
         private LocalDate lastActiveDate;
+        private Integer highestRewardedStreak;
+
     }
 
     // Returned by the backend when sending user data to the frontend (other user - private info like email not returned)
@@ -114,6 +116,7 @@ public class UserDto {
         private Integer currentStreak;
         private Integer longestStreak;
         private LocalDate lastActiveDate;
+        private Integer highestRewardedStreak;
     }
 
 }

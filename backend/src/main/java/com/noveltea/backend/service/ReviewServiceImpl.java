@@ -232,6 +232,8 @@ public class ReviewServiceImpl implements ReviewService {
 
         gamificationService.addReceivedLike(review.getUser().getUserId());
 
+        gamificationService.updateDailyStreak(userId);
+
         review.setLikes((int) reviewLikeRepository.countByReview(review));
         Review savedReview = reviewRepository.save(review);
 
@@ -256,6 +258,7 @@ public class ReviewServiceImpl implements ReviewService {
         reviewLikeRepository.delete(reviewLike);
 
         gamificationService.removeReceivedLike(review.getUser().getUserId());
+        gamificationService.updateDailyStreak(userId);
 
         review.setLikes((int) reviewLikeRepository.countByReview(review));
         Review savedReview = reviewRepository.save(review);

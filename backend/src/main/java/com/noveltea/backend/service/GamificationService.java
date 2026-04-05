@@ -19,6 +19,11 @@ public class GamificationService {
     public static final int POINTS_REMOVED_WHEN_REVIEW_DELETED = 5;
     public static final int POINTS_REMOVED_WHEN_REVIEW_UNLIKED = 2;
 
+    public static final int STREAK_3_DAY_REWARD = 5;
+    public static final int STREAK_7_DAY_REWARD = 10;
+    public static final int STREAK_14_DAY_REWARD = 15;
+    public static final int STREAK_30_DAY_REWARD = 20;
+
     @Transactional
     public void awardPoints(Long userId, int pointsToAdd) {
         User user = userRepository.findById(userId).orElseThrow();
@@ -107,6 +112,36 @@ public class GamificationService {
         }
 
         user.setLastActiveDate(today);
+        awardStreakMilestoneIfNeeded(user);
         userRepository.save(user);
+    }
+
+    private void awardStreakMilestoneIfNeeded(User user) {
+        int currentStreak = user.getCurrentStreak() == null ? 0 : user.getCurrentStreak();
+        int highestRewardedStreak = user.getHighestRewardedStreak() == null ? 0 : user.getHighestRewardedStreak();
+        int currentPoints = user.getPoints() == null ? 0 : user.getPoints();
+
+        if (currentStreak >= 30 && highestRewardedStreak < 30) {
+            user.setPoints(currentPoints + STREAK_30_DAY_REWARD);
+            user.setHighestRewardedStreak(30);
+            return;
+        }
+
+        if (currentStreak >= 14 && highestRewardedStreak < 14) {
+            user.setPoints(currentPoints + STREAK_14_DAY_REWARD);
+            user.setHighestRewardedStreak(14);
+            return;
+        }
+
+        if (currentStreak >= 7 && highestRewardedStreak < 7) {
+            user.setPoints(currentPoints + STREAK_7_DAY_REWARD);
+            user.setHighestRewardedStreak(7);
+            return;
+        }
+
+        if (currentStreak >= 3 && highestRewardedStreak < 3) {
+            user.setPoints(currentPoints + STREAK_3_DAY_REWARD);
+            user.setHighestRewardedStreak(3);
+        }
     }
 }

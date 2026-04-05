@@ -20,6 +20,7 @@ public class ClubAnnouncementService {
     private final BookClubRepository bookClubRepository;
     private final BookClubMemberRepository bookClubMemberRepository;
     private final UserRepository userRepository;
+    private final GamificationService gamificationService;
 
     // GET — any member (or public club viewer) can read the announcement
     @Transactional(readOnly = true)
@@ -45,8 +46,9 @@ public class ClubAnnouncementService {
         announcement.setContent(request.getContent());
         announcement.setUpdatedAt(LocalDateTime.now());
 
-        return toResponse(announcementRepository.save(announcement));
-    }
+        ClubAnnouncement saved = announcementRepository.save(announcement);
+        gamificationService.updateDailyStreak(userId);
+        return toResponse(saved);    }
 
     // DELETE — owner/mod only
     @Transactional

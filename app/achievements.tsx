@@ -1,7 +1,7 @@
-import { reviewsApi, usersApi } from '@/src/api/client';
+import { authApi, reviewsApi, usersApi, UserProfile } from '@/src/api/client';
 import { useAuth } from '@/src/context/AuthContext';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Appbar, Card, Text, useTheme } from 'react-native-paper';
 
@@ -18,59 +18,63 @@ export default function AchievementsScreen() {
   const theme = useTheme();
   const { user, token } = useAuth();
 
-  const currentStreak = user?.currentStreak ?? 0;
-  const longestStreak = user?.longestStreak ?? 0;
-
+  const [freshUser, setFreshUser] = useState<UserProfile | null>(null);
   const [leaderboard, setLeaderboard] = useState<any[]>([]);
-
   const [reviewCount, setReviewCount] = useState(0);
 
   useFocusEffect(
-  useCallback(() => {
-    let cancelled = false;
+    useCallback(() => {
+      let cancelled = false;
 
-    async function load() {
-      if (!token) return;
+      async function load() {
+        if (!token) return;
 
-      // load review count safely
-      try {
-        const count = await reviewsApi.getMyCount(token);
-        console.log('ACHIEVEMENTS review count:', count);
-
-        if (!cancelled) {
-            setReviewCount(count);
+        try {
+          const profile = await authApi.me(token);
+          if (!cancelled) {
+            setFreshUser(profile);
+          }
+        } catch {
+          if (!cancelled) {
+            setFreshUser(null);
+          }
         }
-    } catch (e) {
-        console.log('ACHIEVEMENTS review count failed:', e);
 
-      if (!cancelled) {
-        setReviewCount(0);
+        try {
+          const count = await reviewsApi.getMyCount(token);
+          if (!cancelled) {
+            setReviewCount(typeof count === 'number' ? count : 0);
+          }
+        } catch {
+          if (!cancelled) {
+            setReviewCount(0);
+          }
         }
-    }
 
-      // load leaderboard separately so it doesn't break review count
-      try {
-        const leaderboardData = await usersApi.getLeaderboard(token);
-        if (!cancelled) {
-          setLeaderboard(leaderboardData.slice(0, 10));
-        }
-      } catch {
-        if (!cancelled) {
-          setLeaderboard([]);
+        try {
+          const leaderboardData = await usersApi.getLeaderboard(token);
+          if (!cancelled) {
+            setLeaderboard(leaderboardData.slice(0, 10));
+          }
+        } catch {
+          if (!cancelled) {
+            setLeaderboard([]);
+          }
         }
       }
-    }
 
-    load();
+      load();
 
-    return () => {
-      cancelled = true;
-    };
-  }, [token])
-);
+      return () => {
+        cancelled = true;
+      };
+    }, [token])
+  );
 
-  const points = user?.points ?? 0;
-  const likesReceived = user?.reviewLikesReceived ?? 0;
+  const currentStreak = freshUser?.currentStreak ?? user?.currentStreak ?? 0;
+  const longestStreak = freshUser?.longestStreak ?? user?.longestStreak ?? 0;
+  const points = freshUser?.points ?? user?.points ?? 0;
+  const likesReceived = freshUser?.reviewLikesReceived ?? user?.reviewLikesReceived ?? 0;
 
   const achievementItems = [
     milestone(reviewCount >= 1, 'First Review', 'Write your first review'),
@@ -90,23 +94,20 @@ export default function AchievementsScreen() {
         <Appbar.BackAction onPress={() => router.back()} />
         <Appbar.Content title="Achievements" />
       </Appbar.Header>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text variant="headlineSmall" style={styles.title}>
-          🏆 Progress
-        </Text>
 
-        <Card style={[styles.card, { backgroundColor: '#F3F3F3' }]}>          
-            <Card.Content>
+      <ScrollView contentContainerStyle={styles.content}>
+        <Card style={[styles.card, { backgroundColor: '#F3F3F3' }]}>
+          <Card.Content>
             <Text variant="titleMedium">Your Progress</Text>
             <Text style={styles.value}>{completedCount}/{totalCount} achievements unlocked</Text>
             <Text style={styles.value}>⭐ Points: {points}</Text>
             <Text style={styles.value}>👍 Likes received: {likesReceived}</Text>
-            <Text style={styles.value}>📝 Reviews: {String(reviewCount)}</Text>
-            </Card.Content>
+            <Text style={styles.value}>📝 Reviews: {reviewCount}</Text>
+          </Card.Content>
         </Card>
 
-        <Card style={[styles.card, { backgroundColor: '#F3F3F3' }]}>          
-            <Card.Content>
+        <Card style={[styles.card, { backgroundColor: '#F3F3F3' }]}>
+          <Card.Content>
             <Text variant="titleMedium">Reading Milestones</Text>
 
             {achievementItems.map((item, index) => (
@@ -124,12 +125,12 @@ export default function AchievementsScreen() {
           <Card.Content>
             <Text variant="titleMedium">Daily & Weekly Progress</Text>
 
-            <Text style={styles.item}>🔥 Reading Streak</Text>
+            <Text style={styles.item}>🔥 Streak</Text>
             <Text style={styles.sub}>{currentStreak} day{currentStreak === 1 ? '' : 's'} in a row</Text>
 
             <Text style={styles.item}>🏆 Best Streak</Text>
             <Text style={styles.sub}>{longestStreak} day{longestStreak === 1 ? '' : 's'} longest streak</Text>
-           </Card.Content>
+          </Card.Content>
         </Card>
 
         <Card style={[styles.card, { backgroundColor: '#F3F3F3' }]}>
@@ -137,21 +138,21 @@ export default function AchievementsScreen() {
             <Text variant="titleMedium">🏅 Leaderboard</Text>
 
             {leaderboard.length === 0 ? (
-                <Text style={styles.sub}>No leaderboard data yet</Text>
+              <Text style={styles.sub}>No leaderboard data yet</Text>
             ) : (
-            leaderboard.map((item, index) => (
+              leaderboard.map((item, index) => (
                 <View key={item.userId} style={styles.leaderboardRow}>
-            <Text style={styles.rank}>#{index + 1}</Text>
-            <Text style={styles.username}>
+                  <Text style={styles.rank}>#{index + 1}</Text>
+                  <Text style={styles.username}>
                     {item.username}
                     {item.username === user?.username ? ' (You)' : ''}
-            </Text>
-            <Text style={styles.points}>{item.points ?? 0} pts</Text>
-        </View>
-      ))
-    )}
-  </Card.Content>
-</Card>
+                  </Text>
+                  <Text style={styles.points}>{item.points ?? 0} pts</Text>
+                </View>
+              ))
+            )}
+          </Card.Content>
+        </Card>
       </ScrollView>
     </View>
   );
@@ -164,10 +165,6 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     gap: 14,
-  },
-  title: {
-    fontWeight: '700',
-    marginBottom: 4,
   },
   card: {
     borderRadius: 16,
@@ -187,24 +184,21 @@ const styles = StyleSheet.create({
     marginTop: 2,
     opacity: 0.7,
   },
-    leaderboardRow: {
+  leaderboardRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginTop: 12,
-    },
-
+  },
   rank: {
     fontWeight: 'bold',
     width: 30,
-    },
-
-    username: {
+  },
+  username: {
     flex: 1,
     fontSize: 16,
-},
-
-points: {
-  fontWeight: '600',
-},
+  },
+  points: {
+    fontWeight: '600',
+  },
 });

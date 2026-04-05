@@ -26,6 +26,7 @@ public class ClubJoinRequestService {
     private final BookClubRepository bookClubRepository;
     private final BookClubMemberRepository bookClubMemberRepository;
     private final UserRepository userRepository;
+    private final GamificationService gamificationService;
 
     /**
      * Creates a join request for a private club.
@@ -57,8 +58,9 @@ public class ClubJoinRequestService {
                 .status(ClubJoinRequestStatus.PENDING)
                 .build();
 
-        return mapToResponse(joinRequestRepository.save(joinRequest));
-    }
+        ClubJoinRequest saved = joinRequestRepository.save(joinRequest);
+        gamificationService.updateDailyStreak(userId);
+        return mapToResponse(saved);    }
 
     /**
      * Cancels the user's own pending join request.
@@ -112,6 +114,7 @@ public class ClubJoinRequestService {
                 .build();
 
         BookClubMember saved = bookClubMemberRepository.save(newMember);
+        gamificationService.updateDailyStreak(requestingUserId);
 
         return BookClubMemberDto.Response.builder()
                 .clubMemberId(saved.getClubMemberId())
@@ -149,6 +152,8 @@ public class ClubJoinRequestService {
 
         joinRequest.setStatus(ClubJoinRequestStatus.REJECTED);
         joinRequestRepository.save(joinRequest);
+        
+        gamificationService.updateDailyStreak(requestingUserId);
     }
 
     /**

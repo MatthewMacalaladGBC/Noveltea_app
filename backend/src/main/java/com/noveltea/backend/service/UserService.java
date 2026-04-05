@@ -148,6 +148,7 @@ public class UserService {
                 .currentStreak(user.getCurrentStreak())
                 .longestStreak(user.getLongestStreak())
                 .lastActiveDate(user.getLastActiveDate())
+                .highestRewardedStreak(user.getHighestRewardedStreak())
                 .build();
     }
 
@@ -164,6 +165,7 @@ public class UserService {
                 .currentStreak(user.getCurrentStreak())
                 .longestStreak(user.getLongestStreak())
                 .lastActiveDate(user.getLastActiveDate())
+                .highestRewardedStreak(user.getHighestRewardedStreak())
                 .build();
     }
 

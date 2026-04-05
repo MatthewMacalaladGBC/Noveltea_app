@@ -75,4 +75,8 @@ public class User {
     private Integer longestStreak = 0;
 
     private LocalDate lastActiveDate;
+
+    @Builder.Default
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private Integer highestRewardedStreak = 0;
 }

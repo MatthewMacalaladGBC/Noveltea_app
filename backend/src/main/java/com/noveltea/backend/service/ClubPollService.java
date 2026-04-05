@@ -24,6 +24,7 @@ public class ClubPollService {
     private final BookClubRepository bookClubRepository;
     private final BookClubMemberRepository bookClubMemberRepository;
     private final UserRepository userRepository;
+    private final GamificationService gamificationService;
 
     // POST — owner/mod creates a poll; closes any existing active poll first
     @Transactional
@@ -54,6 +55,8 @@ public class ClubPollService {
                     .build();
             poll.getOptions().add(optionRepository.save(opt));
         }
+
+        gamificationService.updateDailyStreak(userId);
 
         return toResponse(poll, null);
     }
@@ -105,6 +108,8 @@ public class ClubPollService {
         voteRepository.save(ClubPollVote.builder().poll(poll).option(option).user(user).build());
         option.setVoteCount(option.getVoteCount() + 1);
         optionRepository.save(option);
+        
+        gamificationService.updateDailyStreak(userId);
 
         // Reload poll to reflect updated vote count
         ClubPoll refreshed = pollRepository.findById(pollId).orElseThrow();

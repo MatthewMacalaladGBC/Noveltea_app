@@ -21,6 +21,7 @@ public class ChatMessageService {
     private final BookClubMemberRepository bookClubMemberRepository;
     private final BookClubItemRepository bookClubItemRepository;
     private final UserRepository userRepository;
+    private final GamificationService gamificationService;
 
     // POST — send a message; auto-attaches current active book for BOOK_DISCUSSION
     @Transactional
@@ -47,8 +48,10 @@ public class ChatMessageService {
                             .bookCoverUrl(item.getBook().getCoverImageUrl()));
         }
 
-        return toResponse(chatMessageRepository.save(builder.build()));
-    }
+        ChatMessage saved = chatMessageRepository.save(builder.build());
+        gamificationService.updateDailyStreak(userId);
+        return toResponse(saved);
+}
 
     // GET — initial load (no cursor), newest 50 returned in ascending order
     @Transactional(readOnly = true)
