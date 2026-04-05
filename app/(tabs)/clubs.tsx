@@ -42,7 +42,7 @@ function ClubCard({
         </Text>
         {isMember && (
           <View style={[styles.memberBadge, { backgroundColor: theme.colors.primary }]}>
-            <Text style={{ color: '#fff', fontSize: 11, fontWeight: '700' }}>Joined</Text>
+            <Text style={{ color: theme.colors.onPrimary, fontSize: 11, fontWeight: '700' }}>Joined</Text>
           </View>
         )}
       </View>

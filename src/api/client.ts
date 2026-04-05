@@ -536,3 +536,43 @@ export const reviewsApi = {
   getUserReviews: (userId: number, token: string) =>
     request<ReviewResponse[]>(`/reviews/user/${userId}`, { token }),
 };
+
+// ---------------------------------------------------------------------------
+// Chat types + endpoints
+// ---------------------------------------------------------------------------
+
+export interface ChatMessageResponse {
+  messageId: number;
+  clubId: number;
+  room: 'GENERAL' | 'BOOK_DISCUSSION';
+  senderUserId: number;
+  senderUsername: string;
+  content: string;
+  sentAt: string; // ISO datetime e.g. "2026-04-04T14:30:00"
+  // Only set for BOOK_DISCUSSION messages when a book was active at send time
+  bookId: string | null;
+  bookTitle: string | null;
+  bookCoverUrl: string | null;
+}
+
+export const chatApi = {
+  // Initial load — 50 most recent messages, oldest-first
+  getMessages: (clubId: number, room: 'GENERAL' | 'BOOK_DISCUSSION', token: string) =>
+    request<ChatMessageResponse[]>(`/clubs/${clubId}/chat/${room}`, { token }),
+
+  // Poll — messages newer than afterId, ascending
+  getMessagesSince: (clubId: number, room: 'GENERAL' | 'BOOK_DISCUSSION', afterId: number, token: string) =>
+    request<ChatMessageResponse[]>(`/clubs/${clubId}/chat/${room}?after=${afterId}`, { token }),
+
+  // Scroll-up pagination — 50 messages older than beforeId, ascending
+  getMessagesBefore: (clubId: number, room: 'GENERAL' | 'BOOK_DISCUSSION', beforeId: number, token: string) =>
+    request<ChatMessageResponse[]>(`/clubs/${clubId}/chat/${room}?before=${beforeId}`, { token }),
+
+  // Send a message
+  sendMessage: (clubId: number, room: 'GENERAL' | 'BOOK_DISCUSSION', content: string, token: string) =>
+    request<ChatMessageResponse>(`/clubs/${clubId}/chat`, {
+      method: 'POST',
+      token,
+      body: JSON.stringify({ room, content }),
+    }),
+};

@@ -5,6 +5,7 @@ export const NovelteaTheme = {
     colors: {
         ...MD3DarkTheme.colors,
         primary: '#FFFFFF',
+        onPrimary: '#000000',
         secondary: '#000000',
         surface: '#1A1A1A',
         surfaceVariant: '#2A2A2A',

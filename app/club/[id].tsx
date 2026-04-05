@@ -980,6 +980,26 @@ export default function ClubHubScreen() {
             <>
               <Divider style={{ marginVertical: 8 }} />
 
+              {/* Chat rooms */}
+              <View style={[styles.section, { flexDirection: 'row', gap: 10 }]}>
+                <Button
+                  mode="contained-tonal"
+                  icon="chat-outline"
+                  style={{ flex: 1 }}
+                  onPress={() => router.push({ pathname: '/club-chat', params: { clubId: String(clubId), room: 'GENERAL', clubName: club.name } } as any)}
+                >
+                  General Chat
+                </Button>
+                <Button
+                  mode="contained-tonal"
+                  icon="book-open-outline"
+                  style={{ flex: 1 }}
+                  onPress={() => router.push({ pathname: '/club-chat', params: { clubId: String(clubId), room: 'BOOK_DISCUSSION', clubName: club.name } } as any)}
+                >
+                  Book Discussion
+                </Button>
+              </View>
+
               {/* Announcements + Poll */}
               {(announcement || canManage) ? (
                 <>
