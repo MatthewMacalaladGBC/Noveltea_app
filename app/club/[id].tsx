@@ -106,6 +106,8 @@ function EditDateModal({
         onDismiss={onClose}
         contentContainerStyle={[styles.modalContainer, { backgroundColor: theme.colors.surface }]}
       >
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+        <View>
         <Text variant="titleMedium" style={{ color: theme.colors.onSurface, fontWeight: '700', marginBottom: 16 }}>
           {title}
         </Text>
@@ -128,6 +130,8 @@ function EditDateModal({
           <Button mode="outlined" onPress={onClose} style={{ flex: 1 }}>Cancel</Button>
           <Button mode="contained" onPress={handleSave} style={{ flex: 1 }}>Save</Button>
         </View>
+        </View>
+        </TouchableWithoutFeedback>
       </Modal>
     </Portal>
   );
