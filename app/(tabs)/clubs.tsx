@@ -143,6 +143,7 @@ function CreateClubModal({
           value={description}
           onChangeText={setDescription}
           multiline
+          submitBehavior="blurAndSubmit"
           numberOfLines={3}
           disabled={loading}
           style={{ marginBottom: 12 }}

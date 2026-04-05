@@ -111,6 +111,7 @@ export default function CreateListModal({ visible, onClose, onCreated, token }: 
             value={description}
             onChangeText={setDescription}
             multiline
+            submitBehavior="blurAndSubmit"
             numberOfLines={3}
           />
 

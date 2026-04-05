@@ -157,6 +157,7 @@ export default function EditListModal({
             value={description}
             onChangeText={setDescription}
             multiline
+            submitBehavior="blurAndSubmit"
             numberOfLines={3}
           />
 

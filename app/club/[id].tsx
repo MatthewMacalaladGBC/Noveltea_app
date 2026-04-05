@@ -118,6 +118,8 @@ function EditDateModal({
           keyboardType="numeric"
           maxLength={10}
           mode="outlined"
+          returnKeyType="done"
+          onSubmitEditing={Keyboard.dismiss}
           style={{ marginBottom: 4 }}
         />
         {minDate ? (
@@ -1405,6 +1407,7 @@ export default function ClubHubScreen() {
             onChangeText={setEditClubDescription}
             mode="outlined"
             multiline
+            submitBehavior="blurAndSubmit"
             numberOfLines={3}
             style={{ marginBottom: 12 }}
           />
@@ -1453,6 +1456,7 @@ export default function ClubHubScreen() {
             onChangeText={setAnnouncementText}
             mode="outlined"
             multiline
+            submitBehavior="blurAndSubmit"
             numberOfLines={4}
             style={{ marginBottom: 16 }}
           />
