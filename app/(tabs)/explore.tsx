@@ -132,22 +132,17 @@ export default function ExploreScreen() {
 
   const userAge = !user ? 0 : (user.dateOfBirth ? calculateAge(user.dateOfBirth) : 18);
 
-  // Trigger search when arriving from home screen with a query
-  useEffect(() => {
-    if (initialQuery?.trim()) {
-      setQuery(initialQuery.trim());
-      searchBooks(initialQuery.trim());
-    }
-  }, [initialQuery]);
-
   useFocusEffect(
     useCallback(() => {
-      if (!isTrendingMode && !initialQuery) {
+      if (initialQuery?.trim()) {
+        setQuery(initialQuery.trim());
+        searchBooks(initialQuery.trim());
+      } else if (!isTrendingMode) {
         setTrendingActive(false);
         setResults([]);
         setQuery('');
       }
-    }, [isTrendingMode, initialQuery])
+    }, [initialQuery, isTrendingMode])
   );
 
   useEffect(() => {
