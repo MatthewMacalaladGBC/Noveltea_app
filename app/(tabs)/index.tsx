@@ -97,7 +97,7 @@ export default function HomeScreen() {
           value={searchQuery}
           onSubmitEditing={() => {
             if (searchQuery.trim()) {
-              router.navigate({
+              router.push({
                 pathname: '/(tabs)/explore',
                 params: { query: searchQuery.trim() },
               } as any);
