@@ -87,8 +87,6 @@ function BookResult({ item }: { item: SearchBook }) {
   );
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-
 function calculateAge(dob: string): number {
   const birth = new Date(dob);
   const today = new Date();
@@ -98,86 +96,53 @@ function calculateAge(dob: string): number {
   return age;
 }
 
-// Mature title keywords
-const MATURE_TITLE_KEYWORDS = [
-  'fifty shades', 'lolita', 'american psycho', 'tropic of cancer',
-  'lady chatterley', 'story of o', 'delta of venus', 'naked lunch',
-  'gone girl', 'girl with the dragon tattoo', 'venus in furs',
-  'my secret garden', 'erotic', 'erotica', 'kamasutra', 'kama sutra',
-];
-
-// Mature authors — all books by these authors are blocked for under-18
-const MATURE_AUTHORS = [
-  'e. l. james', 'el james', 'henry miller', 'anaïs nin', 'anais nin',
-  'bret easton ellis', 'd.h. lawrence', 'vladimir nabokov',
-];
-
-async function isMature(isbn: string, title: string, author: string): Promise<boolean> {
-  const titleLower = title.toLowerCase();
-  const authorLower = author.toLowerCase();
-
-  // Layer 1 — block by known mature title keywords
-  if (MATURE_TITLE_KEYWORDS.some(k => titleLower.includes(k))) return true;
-
-  // Layer 2 — block by known mature authors entirely
-  if (MATURE_AUTHORS.some(a => authorLower.includes(a))) return true;
-
-  // Layer 3 — Google Books maturityRating as fallback
+async function isMature(isbn: string): Promise<boolean> {
   try {
-    const query = isbn ? `isbn:${isbn}` : `intitle:${encodeURIComponent(title)}`;
-    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=${query}`);
+    const res = await fetch(`https://www.googleapis.com/books/v1/volumes?q=isbn:${isbn}`);
     const data = await res.json();
-    if (data.totalItems > 0) {
-      return data.items[0].volumeInfo.maturityRating === 'MATURE';
-    }
+    if (data.totalItems > 0) return data.items[0].volumeInfo.maturityRating === 'MATURE';
     return false;
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
 async function filterMatureBooks(books: SearchBook[], userAge: number): Promise<SearchBook[]> {
   if (userAge >= 18) return books;
-
   const results = await Promise.all(
     books.map(async (book) => {
-      const isbn = book.isbn?.[0] ?? '';
-      const title = book.title ?? '';
-      const author = book.author_name?.[0] ?? '';
-      const mature = await isMature(isbn, title, author);
+      const isbn = book.isbn?.[0];
+      if (!isbn) return book;
+      const mature = await isMature(isbn);
       return mature ? null : book;
     })
   );
-
   return results.filter(Boolean) as SearchBook[];
 }
-
-// ─── Main screen ──────────────────────────────────────────────────────────────
 
 export default function ExploreScreen() {
   const theme = useTheme();
   const { user } = useAuth();
-  const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const { mode, query: initialQuery } = useLocalSearchParams<{ mode?: string; query?: string }>();
   const isTrendingMode = mode === 'trending';
 
   const [trendingActive, setTrendingActive] = useState(isTrendingMode);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState(initialQuery ?? '');
   const [results, setResults] = useState<SearchBook[]>([]);
   const [loading, setLoading] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Guests (not logged in) and users without dateOfBirth are treated as age 0
-  // Only users with a verified dateOfBirth of 18+ see mature content
-  const userAge = user?.dateOfBirth ? calculateAge(user.dateOfBirth) : 0;
+  const userAge = !user ? 0 : (user.dateOfBirth ? calculateAge(user.dateOfBirth) : 18);
 
   useFocusEffect(
     useCallback(() => {
-      if (!isTrendingMode) {
+      if (initialQuery?.trim()) {
+        setQuery(initialQuery.trim());
+        searchBooks(initialQuery.trim());
+      } else if (!isTrendingMode) {
         setTrendingActive(false);
         setResults([]);
         setQuery('');
       }
-    }, [isTrendingMode])
+    }, [initialQuery, isTrendingMode])
   );
 
   useEffect(() => {
@@ -190,11 +155,23 @@ export default function ExploreScreen() {
   const fetchTrending = async () => {
     setLoading(true);
     try {
-      const res = await fetch(
-        'https://openlibrary.org/search.json?q=trending&sort=rating&limit=20&fields=key,title,author_name,first_publish_year,cover_i,isbn'
+      const FICTION_GENRES = ['fantasy', 'science_fiction', 'romance'];
+      const results = await Promise.all(
+        FICTION_GENRES.map(genre =>
+          fetch(`https://openlibrary.org/subjects/${genre}.json?sort=trending&limit=7`)
+            .then(res => res.ok ? res.json() : null)
+            .then(data => (data?.works ?? []).map((w: any) => ({
+              key: w.key,
+              title: w.title,
+              author_name: w.authors?.map((a: any) => a.name),
+              first_publish_year: w.first_publish_year,
+              cover_i: w.cover_id,
+              isbn: w.isbn,
+            })))
+            .catch(() => [])
+        )
       );
-      const data = res.ok ? await res.json().catch(() => null) : null;
-      const filtered = await filterMatureBooks(data?.docs ?? [], userAge);
+      const filtered = await filterMatureBooks(results.flat(), userAge);
       setResults(filtered);
     } catch {
       setResults([]);
