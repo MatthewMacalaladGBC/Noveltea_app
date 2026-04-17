@@ -1,6 +1,5 @@
-import { router } from 'expo-router';
 import { ScrollView, StyleSheet, View } from 'react-native';
-import { Appbar, Divider, Text, useTheme } from 'react-native-paper';
+import { Divider, Text, useTheme } from 'react-native-paper';
 
 const LAST_UPDATED = 'April 4, 2026';
 
@@ -30,10 +29,7 @@ export default function TermsOfServiceScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.colors.background }}>
-      <Appbar.Header style={{ backgroundColor: theme.colors.background }}>
-        <Appbar.BackAction onPress={() => router.back()} />
-        <Appbar.Content title="Terms of Service" titleStyle={{ color: theme.colors.onBackground }} />
-      </Appbar.Header>
+      
 
       <ScrollView contentContainerStyle={styles.content}>
         <Text variant="bodySmall" style={[styles.updated, { color: theme.colors.onSurface }]}>

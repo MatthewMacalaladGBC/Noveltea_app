@@ -2,9 +2,9 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { PaperProvider } from 'react-native-paper';
 import 'react-native-reanimated';
+import { AuthContextProvider } from '../src/context/AuthContext';
 import { NovelteaTheme } from '../src/theme';
 import { ThemeContextProvider, useThemeContext } from '../src/ThemeContext';
-import { AuthContextProvider } from '../src/context/AuthContext';
 
 export const unstable_settings = {
   anchor: '(tabs)',
@@ -31,7 +31,7 @@ function RootLayoutContent() {
   return (
     <PaperProvider theme={currentTheme}>
         <Stack>
-          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+         <Stack.Screen name="(tabs)" options={{ headerShown: false, headerBackTitle: '' }} />
           <Stack.Screen name="book/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="list/[id]" options={{ headerShown: false }} />
           <Stack.Screen name="lists" options={{ headerShown: false }} />
@@ -47,6 +47,8 @@ function RootLayoutContent() {
           <Stack.Screen name="auth/login" options={{ headerShown: false }} />
           <Stack.Screen name="auth/signup" options={{ headerShown: false }} />
           <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+          <Stack.Screen name="settings" options={{ headerBackButtonDisplayMode: 'minimal' }} />
+          <Stack.Screen name="edit-profile" options={{ headerBackButtonDisplayMode: 'minimal' }} />
         </Stack>
         <StatusBar style={isDark ? "light" : "dark"} />
     </PaperProvider>

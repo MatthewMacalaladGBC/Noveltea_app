@@ -384,12 +384,7 @@ export default function ProfileScreen() {
             right={(props) => <List.Icon {...props} icon="chevron-right" />}
             onPress={() => router.push("/edit-profile" as any)}
           />
-          <List.Item
-            title="Reading Goals"
-            left={(props) => <List.Icon {...props} icon="flag" />}
-            right={(props) => <List.Icon {...props} icon="chevron-right" />}
-            onPress={() => console.log("Reading goals")}
-          />
+          
           <List.Item
             title="Achievements"
             left={(props) => <List.Icon {...props} icon="trophy-outline" />}
